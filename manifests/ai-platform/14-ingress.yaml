@@ -1,0 +1,72 @@
+---
+# Install nginx ingress controller
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+---
+# Ingress rules — all UIs on one host, different paths
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: raj-ai-lab-ingress
+  namespace: ai-platform
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rag-ui
+                port:
+                  number: 7860
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: rag-service
+                port:
+                  number: 8000
+          - path: /agent
+            pathType: Prefix
+            backend:
+              service:
+                name: agent-orchestrator
+                port:
+                  number: 8001
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: raj-ai-lab-data-ingress
+  namespace: ai-data
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /kafka-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: kafka-ui
+                port:
+                  number: 8080
+          - path: /qdrant
+            pathType: Prefix
+            backend:
+              service:
+                name: qdrant
+                port:
+                  number: 6333
