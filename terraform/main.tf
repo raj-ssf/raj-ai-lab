@@ -145,6 +145,7 @@ resource "null_resource" "namespaces" {
       kubectl $CTX create namespace ai-data 2>/dev/null || true
       kubectl $CTX create namespace ai-platform 2>/dev/null || true
       kubectl $CTX create namespace argocd 2>/dev/null || true
+      kubectl $CTX create namespace vault 2>/dev/null || true
     EOT
   }
 
@@ -363,7 +364,7 @@ resource "helm_release" "monitoring" {
 # ──────────────────────────────────────────────
 
 resource "null_resource" "post_install" {
-  depends_on = [helm_release.monitoring, null_resource.argocd_apps]
+  depends_on = [helm_release.monitoring, null_resource.argocd_apps, helm_release.external_secrets]
 
   provisioner "local-exec" {
     command = <<-EOT
@@ -381,13 +382,28 @@ resource "null_resource" "post_install" {
       # Extra ingress rules for monitoring + argocd namespaces
       kubectl $CTX apply -f ${var.manifests_dir}/post-install/ingress-extras.yaml 2>/dev/null || true
 
+      # Deploy Vault (dev mode)
+      kubectl $CTX apply -f ${var.manifests_dir}/vault/ 2>/dev/null || true
+
+      # Wait for Vault to be ready
+      kubectl $CTX wait --for=condition=Ready pods -l app=vault -n vault --timeout=120s 2>/dev/null || true
+
+      # Run vault init job
+      kubectl $CTX wait --for=condition=Complete job/vault-init -n vault --timeout=120s 2>/dev/null || true
+
+      # Apply secret stores and external secrets
+      kubectl $CTX apply -f ${var.manifests_dir}/vault/04-secret-store.yaml 2>/dev/null || true
+      kubectl $CTX apply -f ${var.manifests_dir}/ai-platform/30-external-secrets.yaml 2>/dev/null || true
+      kubectl $CTX apply -f ${var.manifests_dir}/ai-data/15-external-secrets.yaml 2>/dev/null || true
+
       echo "Post-install manifests applied"
     EOT
   }
 
   triggers = {
-    monitoring = helm_release.monitoring.id
-    argocd     = null_resource.argocd_apps.id
+    monitoring        = helm_release.monitoring.id
+    argocd            = null_resource.argocd_apps.id
+    external_secrets  = helm_release.external_secrets.id
   }
 }
 
@@ -431,6 +447,22 @@ resource "helm_release" "kyverno" {
     name  = "replicaCount"
     value = "1"
   }
+}
+
+# ──────────────────────────────────────────────
+# Step 12: Install External Secrets Operator (Helm)
+# ──────────────────────────────────────────────
+
+resource "helm_release" "external_secrets" {
+  depends_on = [null_resource.k3d_cluster]
+
+  name             = "external-secrets"
+  repository       = "https://charts.external-secrets.io"
+  chart            = "external-secrets"
+  namespace        = "external-secrets"
+  create_namespace = true
+  wait             = true
+  timeout          = 180
 }
 
 # ──────────────────────────────────────────────

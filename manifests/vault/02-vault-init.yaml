@@ -1,0 +1,153 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init
+  namespace: vault
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: default
+      containers:
+        - name: vault-init
+          image: python:3.12-slim
+          command:
+            - /bin/bash
+            - -c
+            - |
+              pip install --quiet hvac requests
+              python3 << 'PYEOF'
+              import hvac
+              import time
+              import os
+
+              VAULT_ADDR = "http://vault.vault:8200"
+              VAULT_TOKEN = "raj-lab-root-token"
+
+              # Wait for Vault to be ready
+              client = hvac.Client(url=VAULT_ADDR, token=VAULT_TOKEN)
+              for i in range(30):
+                  try:
+                      if client.is_authenticated():
+                          break
+                  except Exception:
+                      pass
+                  time.sleep(2)
+              else:
+                  raise Exception("Vault not ready after 60s")
+
+              print("Vault is ready and authenticated")
+
+              # Enable KV v2 secrets engine at 'secret' path
+              try:
+                  client.sys.enable_secrets_engine(
+                      backend_type="kv",
+                      path="secret",
+                      options={"version": "2"},
+                  )
+                  print("Enabled KV v2 at secret/")
+              except hvac.exceptions.InvalidRequest as e:
+                  if "already in use" in str(e):
+                      print("KV v2 already enabled at secret/")
+                  else:
+                      raise
+
+              # Write secrets
+              secrets = {
+                  "postgresql": {
+                      "username": "ai_app",
+                      "password": "raj-lab-password",
+                      "database": "ai_metadata",
+                      "host": "postgresql.ai-data",
+                      "port": "5432",
+                  },
+                  "neo4j": {
+                      "username": "neo4j",
+                      "password": "rajailab123",
+                      "uri": "bolt://graphdb.ai-data:7687",
+                  },
+                  "minio": {
+                      "access_key": "rajailab",
+                      "secret_key": "rajailab123",
+                      "endpoint": "minio.ai-data:9000",
+                  },
+                  "langfuse": {
+                      "public_key": "pk-lf-ca45825c-e015-4c7c-b8bc-ed14572ec860",
+                      "secret_key": "sk-lf-053f2654-f967-4c5d-9612-0405a54c41af",
+                      "host": "http://langfuse.ai-platform:3001",
+                  },
+                  "grafana": {
+                      "admin_password": "raj-ai-lab",
+                  },
+                  "ollama": {
+                      "url": "http://host.k3d.internal:11434",
+                  },
+                  "redis": {
+                      "url": "redis://redis.ai-data:6379",
+                  },
+              }
+
+              for name, data in secrets.items():
+                  client.secrets.kv.v2.create_or_update_secret(
+                      path=name,
+                      secret=data,
+                      mount_point="secret",
+                  )
+                  print(f"Written secret: secret/data/{name}")
+
+              # --- Kubernetes Auth Method ---
+              print("Configuring Kubernetes auth method...")
+
+              # Enable kubernetes auth
+              try:
+                  client.sys.enable_auth_method(
+                      method_type="kubernetes",
+                      path="kubernetes",
+                  )
+                  print("Enabled kubernetes auth method")
+              except hvac.exceptions.InvalidRequest as e:
+                  if "already in use" in str(e):
+                      print("Kubernetes auth already enabled")
+                  else:
+                      raise
+
+              # Read in-cluster CA cert and token
+              with open("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "r") as f:
+                  ca_cert = f.read()
+              with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
+                  jwt_token = f.read()
+
+              # Configure kubernetes auth
+              client.auth.kubernetes.configure(
+                  kubernetes_host="https://kubernetes.default.svc",
+                  pem_keys=[],
+                  kubernetes_ca_cert=ca_cert,
+                  token_reviewer_jwt=jwt_token,
+              )
+              print("Kubernetes auth configured")
+
+              # Create policy
+              policy = """
+              path "secret/data/*" {
+                capabilities = ["read"]
+              }
+              """
+              client.sys.create_or_update_policy(
+                  name="ai-platform-read",
+                  policy=policy,
+              )
+              print("Policy ai-platform-read created")
+
+              # Create role
+              client.auth.kubernetes.create_role(
+                  name="ai-platform",
+                  bound_service_account_names=["default", "*"],
+                  bound_service_account_namespaces=["ai-platform", "ai-data"],
+                  token_policies=["ai-platform-read"],
+                  token_ttl="1h",
+              )
+              print("Role ai-platform created")
+
+              print("Vault initialization complete!")
+              PYEOF
