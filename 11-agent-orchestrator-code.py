@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from kafka import KafkaProducer
 from langfuse import Langfuse
 from langgraph.graph import END, StateGraph
+from neo4j import GraphDatabase
 
 app = FastAPI(title="Raj Agent Orchestrator")
 
@@ -24,6 +25,9 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.k3d.internal:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
 RAG_URL = os.environ.get("RAG_URL", "http://rag-service.ai-platform:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis.ai-data:6379")
+NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://graphdb.ai-data:7687")
+NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "rajailab123")
 MAX_STEPS = int(os.environ.get("MAX_STEPS", "10"))
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "50000"))
 
@@ -32,6 +36,14 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 cache = redis.from_url(REDIS_URL)
+
+# Neo4j knowledge graph
+try:
+    neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    neo4j_driver.verify_connectivity()
+    NEO4J_ENABLED = True
+except:
+    NEO4J_ENABLED = False
 
 # Langfuse tracing
 try:
@@ -93,24 +105,72 @@ def tool_inventory_check(part_number: str) -> dict:
 
 
 def tool_supplier_lookup(part_number: str) -> dict:
-    """Look up alternative suppliers (simulated knowledge graph query)"""
-    suppliers = {
-        "BRG-7721-A": [
-            {"name": "GlobalBearings Inc", "lead_time_days": 2, "unit_price": 4.20},
-            {"name": "PrecisionParts Ltd", "lead_time_days": 5, "unit_price": 3.80},
-        ],
-        "MTR-4400-B": [
-            {"name": "MotorWorld", "lead_time_days": 3, "unit_price": 120.00},
-        ],
-    }
-    data = suppliers.get(part_number, [])
-    return {"tool": "supplier_lookup", "part": part_number, "result": data}
+    """Look up alternative suppliers from Neo4j knowledge graph"""
+    if not NEO4J_ENABLED:
+        return {"tool": "supplier_lookup", "part": part_number, "error": "Neo4j not connected", "result": []}
+    try:
+        with neo4j_driver.session() as session:
+            result = session.run("""
+                MATCH (s:Supplier)-[:SUPPLIES]->(p:Part {partNumber: $part})
+                RETURN s.id as id, s.name as name
+            """, part=part_number)
+            suppliers = [{"id": r["id"], "name": r["name"]} for r in result]
+        return {"tool": "supplier_lookup", "part": part_number, "source": "neo4j", "result": suppliers}
+    except Exception as e:
+        return {"tool": "supplier_lookup", "part": part_number, "error": str(e), "result": []}
+
+
+def tool_graph_query(query: str) -> dict:
+    """Run a natural language query against the Neo4j knowledge graph.
+    Translates common questions to Cypher queries."""
+    if not NEO4J_ENABLED:
+        return {"tool": "graph_query", "error": "Neo4j not connected", "result": []}
+
+    # Map natural language patterns to Cypher
+    q_lower = query.lower()
+    try:
+        with neo4j_driver.session() as session:
+            if "supplier" in q_lower and "part" in q_lower:
+                # "Which suppliers supply part X?"
+                part = query.split()[-1].upper() if query.split() else ""
+                result = session.run("""
+                    MATCH (s:Supplier)-[:SUPPLIES]->(p:Part)
+                    WHERE p.partNumber CONTAINS $part OR p.description CONTAINS $part
+                    RETURN s.name as supplier, p.partNumber as part, p.description as description
+                """, part=part)
+            elif "product" in q_lower or "affected" in q_lower:
+                # "What products are affected?"
+                result = session.run("""
+                    MATCH (p:Part)-[:USED_IN]->(prod:Product)-[:PRODUCED_ON]->(l:Line)-[:LOCATED_AT]->(f:Facility)
+                    RETURN p.partNumber as part, prod.name as product, l.name as line, f.name as facility
+                """)
+            elif "line" in q_lower or "production" in q_lower:
+                # "Which production lines?"
+                result = session.run("""
+                    MATCH (l:Line)-[:LOCATED_AT]->(f:Facility)
+                    OPTIONAL MATCH (prod:Product)-[:PRODUCED_ON]->(l)
+                    RETURN l.name as line, f.name as facility, collect(prod.name) as products
+                """)
+            else:
+                # General: return all relationships
+                result = session.run("""
+                    MATCH (a)-[r]->(b)
+                    RETURN labels(a)[0] as from_type, a.name as from_name,
+                           type(r) as relationship,
+                           labels(b)[0] as to_type, b.name as to_name
+                    LIMIT 20
+                """)
+            data = [dict(r) for r in result]
+        return {"tool": "graph_query", "query": query, "source": "neo4j", "result": data}
+    except Exception as e:
+        return {"tool": "graph_query", "query": query, "error": str(e), "result": []}
 
 
 TOOLS = {
     "rag_search": tool_rag_search,
     "inventory_check": tool_inventory_check,
     "supplier_lookup": tool_supplier_lookup,
+    "graph_query": tool_graph_query,
 }
 
 
@@ -127,7 +187,8 @@ def reason_node(state: AgentState) -> AgentState:
     prompt = f"""You are a supply chain AI agent. You have these tools:
 - rag_search: Search documents for information. Input: a question string.
 - inventory_check: Check inventory levels. Input: a part number like BRG-7721-A.
-- supplier_lookup: Find alternative suppliers. Input: a part number.
+- supplier_lookup: Find alternative suppliers from the knowledge graph. Input: a part number.
+- graph_query: Query the supply chain knowledge graph for relationships (suppliers, parts, products, production lines, facilities). Input: a natural language question about the supply chain.
 
 Previous steps:{history if history else " (none yet)"}
 
