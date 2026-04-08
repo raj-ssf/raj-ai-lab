@@ -239,6 +239,12 @@ resource "null_resource" "argocd" {
 
       echo "Waiting for ArgoCD..."
       kubectl $CTX wait --for=condition=Ready pods -l app.kubernetes.io/name=argocd-server -n argocd --timeout=180s 2>/dev/null || true
+
+      # Disable TLS redirect so ArgoCD UI works behind plain HTTP ingress
+      kubectl $CTX -n argocd patch deployment argocd-server \
+        --type='json' \
+        -p='[{"op":"replace","path":"/spec/template/spec/containers/0/args","value":["/usr/local/bin/argocd-server","--insecure"]}]'
+      kubectl $CTX wait --for=condition=Ready pods -l app.kubernetes.io/name=argocd-server -n argocd --timeout=120s 2>/dev/null || true
       echo "ArgoCD ready"
     EOT
   }
