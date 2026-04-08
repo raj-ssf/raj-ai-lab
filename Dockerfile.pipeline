@@ -1,5 +1,5 @@
 FROM python:3.12-slim
-RUN pip install --no-cache-dir kafka-python httpx qdrant-client
+RUN pip install --no-cache-dir kafka-python httpx "qdrant-client>=1.12,<1.13"
 ARG SERVICE_FILE
 COPY ${SERVICE_FILE} /app/main.py
 CMD ["python", "/app/main.py"]

@@ -74,13 +74,17 @@ class AgentState(TypedDict):
     answer: str
     sources: list
     status: str  # "running", "completed", "failed", "killed"
+    tenant_id: str
 
 
 # --- Tools the agent can use ---
-def tool_rag_search(question: str) -> dict:
+def tool_rag_search(question: str, tenant_id: str = "") -> dict:
     """Search the RAG pipeline for relevant documents"""
     try:
-        r = httpx.post(f"{RAG_URL}/query", json={"question": question}, timeout=120)
+        payload = {"question": question}
+        if tenant_id:
+            payload["tenant_id"] = tenant_id
+        r = httpx.post(f"{RAG_URL}/query", json=payload, timeout=120)
         data = r.json()
         return {
             "tool": "rag_search",
@@ -96,9 +100,9 @@ def tool_inventory_check(part_number: str) -> dict:
     """Check inventory levels (simulated)"""
     # Simulated inventory data
     inventory = {
-        "BRG-7721-A": {"on_hand": 1250, "daily_usage": 500, "days_of_supply": 2.5},
-        "MTR-4400-B": {"on_hand": 50, "daily_usage": 10, "days_of_supply": 5.0},
-        "GKT-9900-C": {"on_hand": 0, "daily_usage": 25, "days_of_supply": 0},
+        "SKF-32210": {"on_hand": 1250, "daily_usage": 320, "days_of_supply": 3.9},
+        "MTR-4400-B": {"on_hand": 340, "daily_usage": 80, "days_of_supply": 4.25},
+        "GKT-9900-C": {"on_hand": 500, "daily_usage": 80, "days_of_supply": 6.25},
     }
     data = inventory.get(part_number, {"on_hand": 0, "daily_usage": 0, "days_of_supply": 0, "error": "part not found"})
     return {"tool": "inventory_check", "part": part_number, "result": data}
@@ -184,21 +188,38 @@ def reason_node(state: AgentState) -> AgentState:
     for s in state["steps"]:
         history += f"\nStep {s['step']}: Used {s['tool']} → {json.dumps(s['result'])[:200]}"
 
-    prompt = f"""You are a supply chain AI agent. You have these tools:
-- rag_search: Search documents for information. Input: a question string.
-- inventory_check: Check inventory levels. Input: a part number like BRG-7721-A.
-- supplier_lookup: Find alternative suppliers from the knowledge graph. Input: a part number.
-- graph_query: Query the supply chain knowledge graph for relationships (suppliers, parts, products, production lines, facilities). Input: a natural language question about the supply chain.
+    # Force final answer after gathering enough data
+    force_final = step_num >= 7
+
+    if force_final and history:
+        prompt = f"""You are a supply chain crisis response agent. Based on all the data gathered below, provide your final recommendation.
+
+Data gathered:{history}
+
+Question: {state['question']}
+
+You MUST reply with this JSON:
+{{"tool": "final_answer", "input": "your detailed recommendation covering: 1) immediate actions, 2) alternative suppliers, 3) production impact, 4) risk mitigation", "reasoning": "synthesizing all gathered data"}}"""
+    else:
+        prompt = f"""You are a supply chain crisis response agent. Answer the question by gathering information using tools.
+
+TOOLS (use exactly one per step):
+1. rag_search — search company documents. Input: a question string.
+2. inventory_check — check stock levels. Input: exact part number (e.g. SKF-32210).
+3. supplier_lookup — find alternative suppliers. Input: exact part number (e.g. SKF-32210).
+4. graph_query — query supply chain relationships. Input: a question about suppliers, parts, or production.
+
+STRATEGY: Start with rag_search to understand the situation, then use inventory_check and supplier_lookup for specifics. Use final_answer once you have enough info.
 
 Previous steps:{history if history else " (none yet)"}
 
 Question: {state['question']}
 
-What tool should you use next? Reply in this exact JSON format:
-{{"tool": "tool_name", "input": "input_value", "reasoning": "why you chose this"}}
+Reply with ONLY this JSON (no other text):
+{{"tool": "tool_name", "input": "value", "reasoning": "why"}}
 
-If you have enough information to answer, reply:
-{{"tool": "final_answer", "input": "your complete answer here", "reasoning": "why you're done"}}"""
+When ready to answer:
+{{"tool": "final_answer", "input": "your detailed answer", "reasoning": "done"}}"""
 
     try:
         r = httpx.post(
@@ -212,6 +233,12 @@ If you have enough information to answer, reply:
 
         try:
             decision = json.loads(response_text)
+            # Normalize: LLM sometimes uses "query" or "value" instead of "input"
+            if "input" not in decision:
+                for key in ("query", "value", "question", "part", "part_number"):
+                    if key in decision:
+                        decision["input"] = decision[key]
+                        break
         except:
             decision = {"tool": "final_answer", "input": response_text, "reasoning": "could not parse as JSON"}
 
@@ -276,7 +303,10 @@ def act_node(state: AgentState) -> AgentState:
     # Execute the tool
     if tool_name in TOOLS:
         start = time.time()
-        result = TOOLS[tool_name](tool_input)
+        if tool_name == "rag_search":
+            result = TOOLS[tool_name](tool_input, tenant_id=state.get("tenant_id", ""))
+        else:
+            result = TOOLS[tool_name](tool_input)
         latency = int((time.time() - start) * 1000)
 
         last_step["result"] = result
@@ -377,6 +407,7 @@ def health():
 def run_agent(req: dict):
     """Run an agent to answer a question using tools"""
     question = req.get("question", "")
+    tenant_id = req.get("tenant_id", "")
     session_id = f"sess-{uuid.uuid4().hex[:8]}"
     start_time = time.time()
 
@@ -405,7 +436,8 @@ def run_agent(req: dict):
         total_tokens=0,
         answer="",
         sources=[],
-        status="running"
+        status="running",
+        tenant_id=tenant_id
     )
 
     # Run the agent graph
