@@ -1,0 +1,84 @@
+---
+# Kafka — must always have at least 1 running (single replica)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kafka
+---
+# Qdrant — protect vector data availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: qdrant-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: qdrant
+---
+# PostgreSQL — protect database availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgresql
+---
+# Neo4j — protect knowledge graph availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: neo4j-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: neo4j
+---
+# Redis — protect cache + agent kill switch
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis
+---
+# RAG service — always available for queries
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rag-service-pdb
+  namespace: ai-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: rag-service
+---
+# Embedding service — required for both ingest and query
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: embedding-service-pdb
+  namespace: ai-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: embedding-service

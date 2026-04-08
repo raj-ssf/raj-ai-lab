@@ -1,0 +1,53 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: embedding-ingress
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: embedding-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: rag-service
+        - podSelector:
+            matchLabels:
+              app: embedder
+      ports:
+        - port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rag-service-ingress
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: rag-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agent-ingress
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: agent-orchestrator
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8001

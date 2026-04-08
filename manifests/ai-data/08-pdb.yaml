@@ -1,0 +1,54 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kafka
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: qdrant-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: qdrant
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgresql-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgresql
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: neo4j-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: neo4j
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis

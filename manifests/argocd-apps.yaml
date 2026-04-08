@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-data
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/myriad-personal/Raj.git
+    targetRevision: master
+    path: raj-lab/manifests
+    directory:
+      include: '0{1,2,3,4}-*.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ai-data
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-platform
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/myriad-personal/Raj.git
+    targetRevision: master
+    path: raj-lab/manifests
+    directory:
+      include: '0{5,6}-*.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ai-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

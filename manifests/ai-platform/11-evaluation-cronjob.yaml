@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evaluation
+  namespace: ai-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evaluation
+  template:
+    metadata:
+      labels:
+        app: evaluation
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3d-raj-ai-lab-agent-1
+      containers:
+        - name: evaluation
+          image: raj/evaluation:latest
+          imagePullPolicy: Never
+          command:
+            - /bin/bash
+            - -c
+            - |
+              while true; do
+                echo "=== Running evaluation ==="
+                python3 /app/main.py
+                echo "=== Sleeping 6 hours ==="
+                sleep 21600
+              done
+          env:
+            - name: RAG_URL
+              value: "http://rag-service.ai-platform:8000"
+            - name: KAFKA_BOOTSTRAP
+              value: "kafka.ai-data:9092"
+            - name: PG_URL
+              value: "postgresql://ai_app:raj-lab-password@postgresql.ai-data:5432/ai_metadata"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
