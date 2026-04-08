@@ -1,0 +1,100 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: data-backup
+  namespace: ai-data
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: data-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: python:3.12-slim
+              command:
+                - python3
+                - -c
+                - |
+                  import json, os, subprocess, time, urllib.request, urllib.error
+                  from datetime import datetime, timezone
+
+                  QDRANT_URL = os.environ.get("QDRANT_URL", "http://qdrant:6333")
+                  PG_HOST = os.environ.get("PG_HOST", "postgresql")
+                  PG_USER = os.environ.get("PG_USER", "ai_app")
+                  PG_PASSWORD = os.environ.get("PG_PASSWORD", "raj-lab-password")
+                  PG_DB = os.environ.get("PG_DB", "ai_metadata")
+                  MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "minio:9000")
+                  MINIO_ACCESS = os.environ.get("MINIO_ACCESS_KEY", "rajailab")
+                  MINIO_SECRET = os.environ.get("MINIO_SECRET_KEY", "rajailab123")
+                  BUCKET = "raj-backups"
+                  ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+
+                  print(f"=== Data Backup {ts} ===")
+
+                  # Install minio client
+                  subprocess.run(["pip", "install", "--quiet", "minio"], check=True)
+                  from minio import Minio
+                  import io
+
+                  s3 = Minio(MINIO_ENDPOINT, access_key=MINIO_ACCESS, secret_key=MINIO_SECRET, secure=False)
+                  if not s3.bucket_exists(BUCKET):
+                      s3.make_bucket(BUCKET)
+
+                  # 1. Qdrant snapshot
+                  print("Creating Qdrant snapshots...")
+                  try:
+                      # List collections
+                      r = urllib.request.urlopen(f"{QDRANT_URL}/collections")
+                      collections = json.loads(r.read()).get("result", {}).get("collections", [])
+                      for col in collections:
+                          name = col["name"]
+                          print(f"  Snapshotting {name}...")
+                          req = urllib.request.Request(f"{QDRANT_URL}/collections/{name}/snapshots", method="POST")
+                          resp = urllib.request.urlopen(req)
+                          snap = json.loads(resp.read()).get("result", {})
+                          snap_name = snap.get("name", "")
+                          if snap_name:
+                              # Download snapshot
+                              snap_url = f"{QDRANT_URL}/collections/{name}/snapshots/{snap_name}"
+                              snap_data = urllib.request.urlopen(snap_url).read()
+                              s3_key = f"qdrant/{ts}/{name}/{snap_name}"
+                              s3.put_object(BUCKET, s3_key, io.BytesIO(snap_data), len(snap_data))
+                              print(f"    Saved to s3://{BUCKET}/{s3_key} ({len(snap_data)} bytes)")
+                  except Exception as e:
+                      print(f"  Qdrant backup failed: {e}")
+
+                  # 2. PostgreSQL dump
+                  print("Dumping PostgreSQL...")
+                  try:
+                      os.environ["PGPASSWORD"] = PG_PASSWORD
+                      dump_file = f"/tmp/pg-{ts}.sql"
+                      subprocess.run([
+                          "pg_dump", "-h", PG_HOST, "-U", PG_USER, "-d", PG_DB,
+                          "-f", dump_file
+                      ], check=True, capture_output=True)
+                      with open(dump_file, "rb") as f:
+                          data = f.read()
+                      s3_key = f"postgresql/{ts}/{PG_DB}.sql"
+                      s3.put_object(BUCKET, s3_key, io.BytesIO(data), len(data))
+                      print(f"  Saved to s3://{BUCKET}/{s3_key} ({len(data)} bytes)")
+                  except Exception as e:
+                      print(f"  PostgreSQL backup failed: {e}")
+
+                  print(f"=== Backup complete ===")
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
