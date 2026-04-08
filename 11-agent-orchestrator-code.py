@@ -365,6 +365,16 @@ def act_node(state: AgentState) -> AgentState:
             "timestamp": now()
         })
 
+        publish("agent.action", {
+            "session_id": state["session_id"],
+            "step": state["current_step"],
+            "tool": tool_name,
+            "input": tool_input[:500],
+            "success": "error" not in result,
+            "latency_ms": latency,
+            "timestamp": now()
+        })
+
         # If it was a RAG search, capture sources
         if tool_name == "rag_search" and "sources" in result:
             state["sources"].extend(result.get("sources", []))
