@@ -13,12 +13,26 @@ import httpx
 import redis
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
 from langfuse import Langfuse
 from langgraph.graph import END, StateGraph
 from neo4j import GraphDatabase
+from prometheus_client import Counter, Histogram, Gauge, generate_latest
 
 app = FastAPI(title="Raj Agent Orchestrator")
+
+# --- Prometheus metrics ---
+AGENT_RUNS = Counter("agent_runs_total", "Total agent runs", ["status"])
+AGENT_STEPS = Histogram("agent_steps_count", "Steps per agent run", buckets=[1, 2, 3, 5, 7, 10])
+AGENT_LATENCY = Histogram("agent_run_duration_seconds", "Agent run latency", buckets=[1, 5, 10, 20, 30, 60])
+AGENT_TOKENS = Histogram("agent_tokens_total", "Tokens per agent run", buckets=[100, 500, 1000, 5000, 10000])
+TOOL_CALLS = Counter("agent_tool_calls_total", "Tool calls by tool name", ["tool"])
+ACTIVE_AGENTS = Gauge("agent_active_runs", "Currently running agents")
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def metrics():
+    return generate_latest()
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.k3d.internal:11434")
@@ -309,6 +323,7 @@ def act_node(state: AgentState) -> AgentState:
 
     # Execute the tool
     if tool_name in TOOLS:
+        TOOL_CALLS.labels(tool=tool_name).inc()
         start = time.time()
         if tool_name == "rag_search":
             result = TOOLS[tool_name](tool_input, tenant_id=state.get("tenant_id", ""))
@@ -417,6 +432,7 @@ def run_agent(req: dict):
     tenant_id = req.get("tenant_id", "")
     session_id = f"sess-{uuid.uuid4().hex[:8]}"
     start_time = time.time()
+    ACTIVE_AGENTS.inc()
 
     # Start Langfuse trace for entire agent session
     trace = None
@@ -495,6 +511,12 @@ def run_agent(req: dict):
         "status": final_state["status"],
         "timestamp": now()
     })
+
+    ACTIVE_AGENTS.dec()
+    AGENT_RUNS.labels(status=final_state["status"]).inc()
+    AGENT_STEPS.observe(final_state["current_step"])
+    AGENT_LATENCY.observe(time.time() - start_time)
+    AGENT_TOKENS.observe(final_state["total_tokens"])
 
     return {
         "session_id": session_id,

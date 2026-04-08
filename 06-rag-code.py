@@ -9,13 +9,31 @@ import httpx
 import redis
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
 from langfuse import Langfuse
 from minio import Minio
+from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 app = FastAPI(title="Raj RAG Service")
+
+# --- Prometheus metrics ---
+QUERY_LATENCY = Histogram("rag_query_duration_seconds", "RAG query latency", ["model", "route", "tenant_id"], buckets=[0.5, 1, 2, 5, 10, 30, 60])
+QUERY_COUNT = Counter("rag_query_total", "Total RAG queries", ["model", "route", "tenant_id", "cached"])
+INGEST_COUNT = Counter("rag_ingest_total", "Total documents ingested", ["tenant_id"])
+TOKEN_COUNT = Counter("rag_tokens_total", "LLM tokens consumed", ["model", "route"])
+CACHE_HITS = Counter("rag_cache_hits_total", "Cache hits")
+CACHE_MISSES = Counter("rag_cache_misses_total", "Cache misses")
+EMBEDDING_LATENCY = Histogram("rag_embedding_duration_seconds", "Embedding call latency", buckets=[0.1, 0.5, 1, 2, 5])
+LLM_LATENCY = Histogram("rag_llm_duration_seconds", "LLM call latency", ["model"], buckets=[1, 2, 5, 10, 30, 60])
+VECTOR_SEARCH_LATENCY = Histogram("rag_vector_search_duration_seconds", "Qdrant search latency", buckets=[0.01, 0.05, 0.1, 0.5, 1])
+ACTIVE_QUERIES = Gauge("rag_active_queries", "Currently running queries")
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def metrics():
+    return generate_latest()
 qdrant = QdrantClient(url=os.environ["QDRANT_URL"])
 cache = redis.from_url(os.environ["REDIS_URL"])
 
@@ -146,6 +164,8 @@ def ingest(doc: dict):
         except Exception as e:
             s3_path = f"s3-error: {e}"
 
+    INGEST_COUNT.labels(tenant_id=tenant_id).inc()
+
     # Publish to Kafka with tenant_id
     publish("document.uploaded", {
         "event_id": f"evt-{uuid.uuid4().hex[:8]}",
@@ -197,10 +217,16 @@ def query(q: dict):
         except:
             pass
 
+    ACTIVE_QUERIES.inc()
+
     # Tenant-specific cache key
     cache_key = f"query:{tenant_id}:{hashlib.md5(question.encode()).hexdigest()}"
     cached = cache.get(cache_key)
     if cached:
+        CACHE_HITS.inc()
+        QUERY_COUNT.labels(model=selected_model, route=route, tenant_id=tenant_id, cached="true").inc()
+        QUERY_LATENCY.labels(model=selected_model, route=route, tenant_id=tenant_id).observe(time.time() - start_time)
+        ACTIVE_QUERIES.dec()
         result = json.loads(cached) | {"cached": True, "query_id": query_id}
         if trace:
             try: trace.update(output={"cached": True}, metadata={"cache": "hit"})
@@ -212,12 +238,16 @@ def query(q: dict):
         })
         return result
 
+    CACHE_MISSES.inc()
+
     # Embed
     embed_span = None
     if trace:
         try: embed_span = trace.span(name="embed-query", input={"text": question})
         except: pass
+    embed_start = time.time()
     query_vector = embed(question)
+    EMBEDDING_LATENCY.observe(time.time() - embed_start)
     if embed_span:
         try: embed_span.end(output={"dimensions": len(query_vector)})
         except: pass
@@ -226,9 +256,11 @@ def query(q: dict):
     if trace:
         try: retrieval_span = trace.span(name="qdrant-search", input={"top_k": TOP_K, "collection": collection})
         except: pass
+    vs_start = time.time()
     results = qdrant.query_points(
         collection_name=collection, query=query_vector, limit=TOP_K
     ).points
+    VECTOR_SEARCH_LATENCY.observe(time.time() - vs_start)
 
     context_parts = []
     sources = []
@@ -259,15 +291,18 @@ Question: {question}"""
             )
         except: pass
     try:
+        llm_start = time.time()
         llm_response = httpx.post(
             f"{OLLAMA_URL}/api/generate",
             json={"model": selected_model, "prompt": prompt, "stream": False},
             timeout=120
         )
         llm_data = llm_response.json()
+        LLM_LATENCY.labels(model=selected_model).observe(time.time() - llm_start)
         answer = llm_data.get("response", "LLM error")
         tokens_used = llm_data.get("eval_count", 0)
         prompt_tokens = llm_data.get("prompt_eval_count", 0)
+        TOKEN_COUNT.labels(model=selected_model, route=route).inc(tokens_used + prompt_tokens)
         if generation:
             try: generation.end(output=answer, usage={"input": prompt_tokens, "output": tokens_used})
             except: pass
@@ -296,6 +331,10 @@ Question: {question}"""
         "tokens_used": tokens_used, "latency_ms": latency_ms,
         "cached": False, "timestamp": now()
     })
+
+    QUERY_COUNT.labels(model=selected_model, route=route, tenant_id=tenant_id, cached="false").inc()
+    QUERY_LATENCY.labels(model=selected_model, route=route, tenant_id=tenant_id).observe(time.time() - start_time)
+    ACTIVE_QUERIES.dec()
 
     result = {
         "answer": answer, "sources": sources, "cached": False,

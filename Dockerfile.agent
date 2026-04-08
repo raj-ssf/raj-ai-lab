@@ -1,4 +1,4 @@
 FROM python:3.12-slim
-RUN pip install --no-cache-dir fastapi uvicorn kafka-python redis httpx langgraph "langfuse>=2.0,<3.0" neo4j
+RUN pip install --no-cache-dir fastapi uvicorn kafka-python redis httpx langgraph "langfuse>=2.0,<3.0" neo4j prometheus-client
 COPY 11-agent-orchestrator-code.py /app/main.py
 CMD ["python", "/app/main.py"]

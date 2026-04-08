@@ -69,4 +69,5 @@ spec:
   selector:
     app: rag-service
   ports:
-    - port: 8000
+    - name: http
+      port: 8000

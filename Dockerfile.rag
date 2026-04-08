@@ -1,4 +1,4 @@
 FROM python:3.12-slim
-RUN pip install --no-cache-dir fastapi uvicorn qdrant-client httpx redis kafka-python "langfuse>=2.0,<3.0" minio
+RUN pip install --no-cache-dir fastapi uvicorn qdrant-client httpx redis kafka-python "langfuse>=2.0,<3.0" minio prometheus-client
 COPY 06-rag-code.py /app/main.py
 CMD ["python", "/app/main.py"]

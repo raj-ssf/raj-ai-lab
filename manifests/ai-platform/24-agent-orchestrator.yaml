@@ -75,4 +75,5 @@ spec:
   selector:
     app: agent-orchestrator
   ports:
-    - port: 8001
+    - name: http
+      port: 8001
