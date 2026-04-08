@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langfuse
+  namespace: ai-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langfuse
+  template:
+    metadata:
+      labels:
+        app: langfuse
+    spec:
+      containers:
+        - name: langfuse
+          image: langfuse/langfuse:2
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://ai_app:raj-lab-password@postgresql.ai-data:5432/ai_metadata"
+            - name: NEXTAUTH_SECRET
+              value: "raj-lab-secret-key"
+            - name: NEXTAUTH_URL
+              value: "http://localhost:3001"
+            - name: SALT
+              value: "raj-lab-salt"
+            - name: HOSTNAME
+              value: "0.0.0.0"
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: langfuse
+  namespace: ai-platform
+spec:
+  selector:
+    app: langfuse
+  ports:
+    - port: 3001
+      targetPort: 3000

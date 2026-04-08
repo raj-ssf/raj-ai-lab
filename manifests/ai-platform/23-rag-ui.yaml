@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-ui
+  namespace: ai-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-ui
+  template:
+    metadata:
+      labels:
+        app: rag-ui
+    spec:
+      containers:
+        - name: ui
+          image: raj/rag-ui:latest
+          imagePullPolicy: Never
+          env:
+            - name: RAG_URL
+              value: "http://rag-service.ai-platform:8000"
+          ports:
+            - containerPort: 7860
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-ui
+  namespace: ai-platform
+spec:
+  selector:
+    app: rag-ui
+  ports:
+    - port: 7860

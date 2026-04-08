@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-orchestrator
+  namespace: ai-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-orchestrator
+  template:
+    metadata:
+      labels:
+        app: agent-orchestrator
+    spec:
+      containers:
+        - name: agent
+          image: raj/agent-orchestrator:latest
+          imagePullPolicy: Never
+          env:
+            - name: KAFKA_BOOTSTRAP
+              value: "kafka.ai-data:9092"
+            - name: OLLAMA_URL
+              value: "http://host.k3d.internal:11434"
+            - name: OLLAMA_MODEL
+              value: "llama3.2:latest"
+            - name: RAG_URL
+              value: "http://rag-service.ai-platform:8000"
+            - name: REDIS_URL
+              value: "redis://redis.ai-data:6379"
+            - name: MAX_STEPS
+              value: "10"
+            - name: MAX_TOKENS
+              value: "50000"
+            - name: NEO4J_URI
+              value: "bolt://graphdb.ai-data:7687"
+            - name: NEO4J_USER
+              value: "neo4j"
+            - name: NEO4J_PASSWORD
+              value: "rajailab123"
+            - name: LANGFUSE_PUBLIC_KEY
+              value: "pk-lf-7be0f473-816e-438b-8c70-2dc594e9da23"
+            - name: LANGFUSE_SECRET_KEY
+              value: "sk-lf-c8b83580-2f1c-4fec-903c-d528c81491f7"
+            - name: LANGFUSE_HOST
+              value: "http://langfuse.ai-platform:3001"
+          ports:
+            - containerPort: 8001
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-orchestrator
+  namespace: ai-platform
+spec:
+  selector:
+    app: agent-orchestrator
+  ports:
+    - port: 8001

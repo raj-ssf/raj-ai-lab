@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graph-updater
+  namespace: ai-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: graph-updater
+  template:
+    metadata:
+      labels:
+        app: graph-updater
+    spec:
+      containers:
+        - name: graph-updater
+          image: raj/graph-updater:latest
+          imagePullPolicy: Never
+          env:
+            - name: KAFKA_BOOTSTRAP
+              value: "kafka.ai-data:9092"
+            - name: NEO4J_URI
+              value: "bolt://graphdb.ai-data:7687"
+            - name: NEO4J_USER
+              value: "neo4j"
+            - name: NEO4J_PASSWORD
+              value: "rajailab123"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

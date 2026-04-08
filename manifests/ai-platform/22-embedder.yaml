@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: embedder
+  namespace: ai-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: embedder
+  template:
+    metadata:
+      labels:
+        app: embedder
+    spec:
+      containers:
+        - name: embedder
+          image: raj/embedder:latest
+          imagePullPolicy: Never
+          env:
+            - name: KAFKA_BOOTSTRAP
+              value: "kafka.ai-data:9092"
+            - name: EMBEDDING_URL
+              value: "http://embedding-service.ai-platform:8080"
+            - name: QDRANT_URL
+              value: "http://qdrant.ai-data:6333"
+            - name: QDRANT_COLLECTION
+              value: "raj-docs"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
