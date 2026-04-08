@@ -39,9 +39,9 @@ spec:
             - name: NEO4J_PASSWORD
               value: "rajailab123"
             - name: LANGFUSE_PUBLIC_KEY
-              value: "pk-lf-7be0f473-816e-438b-8c70-2dc594e9da23"
+              value: "pk-lf-ca45825c-e015-4c7c-b8bc-ed14572ec860"
             - name: LANGFUSE_SECRET_KEY
-              value: "sk-lf-c8b83580-2f1c-4fec-903c-d528c81491f7"
+              value: "sk-lf-053f2654-f967-4c5d-9612-0405a54c41af"
             - name: LANGFUSE_HOST
               value: "http://langfuse.ai-platform:3001"
           ports:

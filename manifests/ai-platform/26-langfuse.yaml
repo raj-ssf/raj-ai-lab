@@ -27,6 +27,25 @@ spec:
               value: "raj-lab-salt"
             - name: HOSTNAME
               value: "0.0.0.0"
+            # Auto-bootstrap org, project, user, and API keys on first startup
+            - name: LANGFUSE_INIT_ORG_ID
+              value: "raj-ai-lab"
+            - name: LANGFUSE_INIT_ORG_NAME
+              value: "Raj AI Lab"
+            - name: LANGFUSE_INIT_PROJECT_ID
+              value: "raj-ai-lab"
+            - name: LANGFUSE_INIT_PROJECT_NAME
+              value: "raj-ai-lab"
+            - name: LANGFUSE_INIT_PROJECT_PUBLIC_KEY
+              value: "pk-lf-ca45825c-e015-4c7c-b8bc-ed14572ec860"
+            - name: LANGFUSE_INIT_PROJECT_SECRET_KEY
+              value: "sk-lf-053f2654-f967-4c5d-9612-0405a54c41af"
+            - name: LANGFUSE_INIT_USER_EMAIL
+              value: "raj@lab.local"
+            - name: LANGFUSE_INIT_USER_NAME
+              value: "Raj"
+            - name: LANGFUSE_INIT_USER_PASSWORD
+              value: "rajailab123"
           ports:
             - containerPort: 3000
           resources:
