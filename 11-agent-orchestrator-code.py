@@ -19,12 +19,12 @@ from langfuse import Langfuse
 from langgraph.graph import END, StateGraph
 from neo4j import GraphDatabase
 from opentelemetry import trace as otel_trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from prometheus_client import Counter, Histogram, Gauge, generate_latest
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from prometheus_client import Counter, Gauge, Histogram, generate_latest
 
 # --- OpenTelemetry setup ---
 resource = Resource.create({"service.name": "agent-orchestrator", "service.version": "1.0.0"})

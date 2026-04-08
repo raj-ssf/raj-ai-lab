@@ -8,19 +8,18 @@ from datetime import datetime, timezone
 import httpx
 import redis
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
 from langfuse import Langfuse
 from minio import Minio
 from opentelemetry import trace as otel_trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.trace.propagation import set_span_in_context
-from prometheus_client import Counter, Histogram, Gauge, generate_latest
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
