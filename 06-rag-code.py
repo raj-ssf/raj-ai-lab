@@ -89,6 +89,8 @@ except:
         vectors_config=VectorParams(size=384, distance=Distance.COSINE)
     )
 
+DEFAULT_TENANT = os.environ.get("DEFAULT_TENANT", "default")
+
 def embed(text):
     r = httpx.post(f"{EMBEDDING_URL}/embed", json={"inputs": text}, timeout=30)
     return r.json()[0]
@@ -100,6 +102,18 @@ def publish(topic, message):
     producer.send(topic, message)
     producer.flush()
 
+def get_tenant_collection(tenant_id):
+    """Get or create a tenant-specific Qdrant collection"""
+    collection = f"raj-docs-{tenant_id}"
+    try:
+        qdrant.get_collection(collection)
+    except:
+        qdrant.create_collection(
+            collection_name=collection,
+            vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        )
+    return collection
+
 @app.get("/health")
 def health():
     return {
@@ -109,35 +123,35 @@ def health():
 
 @app.post("/ingest")
 def ingest(doc: dict):
-    """Store in S3 (MinIO) → publish to Kafka → pipeline microservices handle the rest.
+    """Multi-tenant ingest: S3 (per-tenant path) → Kafka (with tenant_id) → pipeline.
 
-    Flow: RAG service → MinIO (permanent storage)
-          → Kafka: document.uploaded
-          → Normalizer → Kafka: document.canonical
-          → Chunker → Kafka: document.chunked
-          → Embedder → Qdrant + Kafka: document.indexed
+    Flow: RAG service → MinIO (s3://{bucket}/{tenant_id}/{doc_id}/{filename})
+          → Kafka: document.uploaded (with tenant_id)
+          → Normalizer → Chunker → Embedder → Qdrant (tenant-specific collection)
     """
     text = doc.get("text", "")
     source = doc.get("source", "unknown")
+    tenant_id = doc.get("tenant_id", DEFAULT_TENANT)
     doc_id = f"doc-{uuid.uuid4().hex[:12]}"
     s3_path = ""
 
-    # Store original document in MinIO (S3)
+    # Store in tenant-specific S3 path
     if S3_ENABLED:
         try:
             import io
-            s3_key = f"{doc_id}/{source}"
+            s3_key = f"{tenant_id}/{doc_id}/{source}"
             data = text.encode("utf-8")
             s3.put_object(MINIO_BUCKET, s3_key, io.BytesIO(data), len(data), content_type="text/plain")
             s3_path = f"s3://{MINIO_BUCKET}/{s3_key}"
         except Exception as e:
             s3_path = f"s3-error: {e}"
 
-    # Publish to Kafka — pipeline does the rest
+    # Publish to Kafka with tenant_id
     publish("document.uploaded", {
         "event_id": f"evt-{uuid.uuid4().hex[:8]}",
         "doc_id": doc_id,
         "source": source,
+        "tenant_id": tenant_id,
         "text": text,
         "text_length": len(text),
         "s3_path": s3_path,
@@ -148,17 +162,23 @@ def ingest(doc: dict):
         "status": "accepted",
         "doc_id": doc_id,
         "source": source,
+        "tenant_id": tenant_id,
+        "collection": f"raj-docs-{tenant_id}",
         "s3_path": s3_path,
-        "message": "Document stored in S3 → published to pipeline → Normalizer → Chunker → Embedder will process it."
+        "message": f"Document stored for tenant '{tenant_id}' → pipeline will process into collection raj-docs-{tenant_id}."
     }
 
 @app.post("/query")
 def query(q: dict):
-    """RAG query with multi-model routing, Kafka logging, and Langfuse tracing"""
+    """Multi-tenant RAG query with multi-model routing, Kafka logging, and Langfuse tracing"""
     question = q.get("question", "")
-    force_model = q.get("model", None)  # optional: override router
+    tenant_id = q.get("tenant_id", DEFAULT_TENANT)
+    force_model = q.get("model", None)
     query_id = f"q-{uuid.uuid4().hex[:8]}"
     start_time = time.time()
+
+    # Get tenant-specific collection
+    collection = get_tenant_collection(tenant_id)
 
     # Route to appropriate model
     if force_model == "fast":
@@ -172,12 +192,13 @@ def query(q: dict):
     trace = None
     if LANGFUSE_ENABLED:
         try:
-            trace = lf.trace(name="rag-query", input={"question": question, "model_route": route},
-                             id=query_id, metadata={"model": selected_model, "route": route})
+            trace = lf.trace(name="rag-query", input={"question": question, "model_route": route, "tenant_id": tenant_id},
+                             id=query_id, metadata={"model": selected_model, "route": route, "tenant_id": tenant_id})
         except:
             pass
 
-    cache_key = f"query:{hashlib.md5(question.encode()).hexdigest()}"
+    # Tenant-specific cache key
+    cache_key = f"query:{tenant_id}:{hashlib.md5(question.encode()).hexdigest()}"
     cached = cache.get(cache_key)
     if cached:
         result = json.loads(cached) | {"cached": True, "query_id": query_id}
@@ -200,13 +221,13 @@ def query(q: dict):
     if embed_span:
         try: embed_span.end(output={"dimensions": len(query_vector)})
         except: pass
-    # Search Qdrant
+    # Search tenant-specific Qdrant collection
     retrieval_span = None
     if trace:
-        try: retrieval_span = trace.span(name="qdrant-search", input={"top_k": TOP_K})
+        try: retrieval_span = trace.span(name="qdrant-search", input={"top_k": TOP_K, "collection": collection})
         except: pass
     results = qdrant.query_points(
-        collection_name=COLLECTION, query=query_vector, limit=TOP_K
+        collection_name=collection, query=query_vector, limit=TOP_K
     ).points
 
     context_parts = []
@@ -268,6 +289,7 @@ Question: {question}"""
 
     publish("query.log", {
         "query_id": query_id, "question": question,
+        "tenant_id": tenant_id, "collection": collection,
         "model": selected_model, "route": route,
         "answer_length": len(answer), "sources": [s["source"] for s in sources],
         "top_score": sources[0]["score"] if sources else 0,
@@ -277,7 +299,8 @@ Question: {question}"""
 
     result = {
         "answer": answer, "sources": sources, "cached": False,
-        "query_id": query_id, "model": selected_model, "route": route
+        "query_id": query_id, "tenant_id": tenant_id,
+        "collection": collection, "model": selected_model, "route": route
     }
     cache.setex(cache_key, 3600, json.dumps(result))
     return result

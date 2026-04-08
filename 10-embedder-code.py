@@ -60,17 +60,28 @@ def consume_loop():
         chunk = message.value
         doc_id = chunk.get("doc_id", "unknown")
         source = chunk.get("source", "unknown")
+        tenant_id = chunk.get("tenant_id", "default")
         chunk_index = chunk.get("chunk_index", 0)
         total_chunks = chunk.get("total_chunks", 1)
         text = chunk.get("text", "")
+
+        # Tenant-specific collection
+        tenant_collection = f"raj-docs-{tenant_id}"
+        try:
+            qdrant.get_collection(tenant_collection)
+        except:
+            qdrant.create_collection(
+                collection_name=tenant_collection,
+                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+            )
 
         # Generate embedding
         vector = embed(text)
         point_id = abs(hash(f"{source}-{chunk_index}")) % (2**63)
 
-        # Store in Qdrant immediately
+        # Store in tenant-specific Qdrant collection
         qdrant.upsert(
-            collection_name=COLLECTION,
+            collection_name=tenant_collection,
             points=[PointStruct(
                 id=point_id, vector=vector,
                 payload={"text": text, "source": source, "chunk_index": chunk_index, "doc_id": doc_id}

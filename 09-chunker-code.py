@@ -54,15 +54,17 @@ def consume_loop():
         doc = canonical.get("document", {})
         doc_id = doc.get("id", "unknown")
         source = doc.get("source", "unknown")
+        tenant_id = canonical.get("tenant_id", "default")
         text = doc.get("text", "")
 
-        print(f"[chunker] Received canonical: {doc_id} ({len(text)} chars)")
+        print(f"[chunker] Received canonical: {doc_id} (tenant: {tenant_id}, {len(text)} chars)")
 
         chunks = chunk_text(text)
         for i, chunk in enumerate(chunks):
             publish("document.chunked", {
                 "doc_id": doc_id,
                 "source": source,
+                "tenant_id": tenant_id,
                 "chunk_index": i,
                 "total_chunks": len(chunks),
                 "text": chunk,

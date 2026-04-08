@@ -6,15 +6,17 @@ import httpx
 
 RAG_URL = os.environ.get("RAG_URL", "http://localhost:8000")
 
-def ingest_document(text, source_name):
+def ingest_document(text, source_name, tenant_id):
     if not text.strip():
         return "Please enter some text to ingest."
     if not source_name.strip():
         source_name = "uploaded-document"
+    if not tenant_id.strip():
+        tenant_id = "default"
     try:
-        r = httpx.post(f"{RAG_URL}/ingest", json={"source": source_name, "text": text}, timeout=60)
+        r = httpx.post(f"{RAG_URL}/ingest", json={"source": source_name, "text": text, "tenant_id": tenant_id}, timeout=60)
         result = r.json()
-        return f"✓ {result.get('status','done')} — doc_id: {result.get('doc_id','?')} — Pipeline: Normalizer → Chunker → Embedder will process it."
+        return f"✓ {result.get('status','done')} — tenant: {result.get('tenant_id','?')} — doc_id: {result.get('doc_id','?')} — collection: {result.get('collection','?')}"
     except Exception as e:
         return f"Error: {e}"
 
@@ -30,9 +32,11 @@ def extract_pdf_text(file_path):
     doc.close()
     return "\n\n".join(pages)
 
-def ingest_file(file, source_name):
+def ingest_file(file, source_name, tenant_id):
     if file is None:
         return "Please upload a file.", ""
+    if not tenant_id.strip():
+        tenant_id = "default"
 
     file_path = file.name if hasattr(file, 'name') else str(file)
     filename = os.path.basename(file_path)
@@ -63,14 +67,16 @@ def ingest_file(file, source_name):
     preview = text[:500] + "..." if len(text) > 500 else text
 
     # Ingest
-    result = ingest_document(text, source_name)
+    result = ingest_document(text, source_name, tenant_id)
     return result, f"Extracted {len(text)} characters from {filename}\n\nPreview:\n{preview}"
 
-def query_rag(question):
+def query_rag(question, tenant_id):
     if not question.strip():
         return "", ""
+    if not tenant_id.strip():
+        tenant_id = "default"
     try:
-        r = httpx.post(f"{RAG_URL}/query", json={"question": question}, timeout=180)
+        r = httpx.post(f"{RAG_URL}/query", json={"question": question, "tenant_id": tenant_id}, timeout=180)
         result = r.json()
         answer = result.get("answer", "No answer")
         sources = result.get("sources", [])
@@ -89,31 +95,34 @@ def query_rag(question):
         return f"Error: {e}", ""
 
 with gr.Blocks(title="Raj AI Lab", theme=gr.themes.Soft()) as app:
-    gr.Markdown("# Raj AI Lab — RAG Pipeline")
-    gr.Markdown("Ingest documents and query them using the full microservice pipeline: **Normalizer → Chunker → Embedder → Qdrant → LLM**")
+    gr.Markdown("# Raj AI Lab — Multi-Tenant RAG Pipeline")
+    gr.Markdown("Ingest documents and query per tenant. Each tenant gets isolated storage (S3), vectors (Qdrant), and cache (Redis).")
 
     with gr.Tab("🔍 Query"):
+        query_tenant = gr.Textbox(label="Tenant ID", value="default", placeholder="acme-corp, globex, default")
         question = gr.Textbox(label="Ask a question", placeholder="What is the torque spec for Model X?", lines=2)
         query_btn = gr.Button("Ask", variant="primary")
         answer = gr.Textbox(label="Answer", lines=8)
         sources = gr.Textbox(label="Sources & Metadata", lines=4)
-        query_btn.click(query_rag, inputs=question, outputs=[answer, sources])
+        query_btn.click(query_rag, inputs=[question, query_tenant], outputs=[answer, sources])
 
     with gr.Tab("📝 Ingest Text"):
+        text_tenant = gr.Textbox(label="Tenant ID", value="default", placeholder="acme-corp, globex, default")
         source_name = gr.Textbox(label="Document name", placeholder="maintenance-manual.pdf")
         doc_text = gr.Textbox(label="Paste document text", lines=15, placeholder="Paste your document content here...")
         ingest_btn = gr.Button("Ingest", variant="primary")
         ingest_result = gr.Textbox(label="Result")
-        ingest_btn.click(ingest_document, inputs=[doc_text, source_name], outputs=ingest_result)
+        ingest_btn.click(ingest_document, inputs=[doc_text, source_name, text_tenant], outputs=ingest_result)
 
     with gr.Tab("📄 Upload File"):
         gr.Markdown("Supports: **PDF**, TXT, MD, CSV, JSON, XML, HTML")
+        file_tenant = gr.Textbox(label="Tenant ID", value="default", placeholder="acme-corp, globex, default")
         file_source = gr.Textbox(label="Document name (optional)", placeholder="auto-detected from filename")
         file_upload = gr.File(label="Upload a file", file_types=[".pdf", ".txt", ".md", ".csv", ".json", ".xml", ".html", ".log", ".yaml", ".yml"])
         upload_btn = gr.Button("Upload & Ingest", variant="primary")
         upload_result = gr.Textbox(label="Result")
         upload_preview = gr.Textbox(label="Extracted Text Preview", lines=10)
-        upload_btn.click(ingest_file, inputs=[file_upload, file_source], outputs=[upload_result, upload_preview])
+        upload_btn.click(ingest_file, inputs=[file_upload, file_source, file_tenant], outputs=[upload_result, upload_preview])
 
 if __name__ == "__main__":
     app.launch(server_name="0.0.0.0", server_port=7860)

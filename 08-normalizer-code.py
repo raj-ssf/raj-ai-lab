@@ -51,6 +51,7 @@ def normalize_document(doc):
             "language": detect_language(doc["text"]),
             "normalized_at": now()
         },
+        "tenant_id": doc.get("tenant_id", "default"),
         "eventRevision": 1
     }
 
