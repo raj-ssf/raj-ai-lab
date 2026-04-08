@@ -18,9 +18,29 @@ from kafka import KafkaProducer
 from langfuse import Langfuse
 from langgraph.graph import END, StateGraph
 from neo4j import GraphDatabase
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 
+# --- OpenTelemetry setup ---
+resource = Resource.create({"service.name": "agent-orchestrator", "service.version": "1.0.0"})
+provider = TracerProvider(resource=resource)
+OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+if OTLP_ENDPOINT:
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_ENDPOINT)))
+else:
+    provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+trace.set_tracer_provider(provider)
+tracer = trace.get_tracer("agent-orchestrator")
+
 app = FastAPI(title="Raj Agent Orchestrator")
+FastAPIInstrumentor.instrument_app(app)
+HTTPXClientInstrumentor().instrument()
 
 # --- Prometheus metrics ---
 AGENT_RUNS = Counter("agent_runs_total", "Total agent runs", ["status"])
@@ -236,11 +256,12 @@ When ready to answer:
 {{"tool": "final_answer", "input": "your detailed answer", "reasoning": "done"}}"""
 
     try:
-        r = httpx.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json"},
-            timeout=60
-        )
+        with tracer.start_as_current_span("agent-reason", attributes={"step": step_num, "model": OLLAMA_MODEL}):
+            r = httpx.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json"},
+                timeout=60
+            )
         llm_data = r.json()
         response_text = llm_data.get("response", "{}")
         tokens = llm_data.get("eval_count", 0)
@@ -325,10 +346,11 @@ def act_node(state: AgentState) -> AgentState:
     if tool_name in TOOLS:
         TOOL_CALLS.labels(tool=tool_name).inc()
         start = time.time()
-        if tool_name == "rag_search":
-            result = TOOLS[tool_name](tool_input, tenant_id=state.get("tenant_id", ""))
-        else:
-            result = TOOLS[tool_name](tool_input)
+        with tracer.start_as_current_span(f"tool:{tool_name}", attributes={"tool": tool_name, "input": str(tool_input)[:200]}):
+            if tool_name == "rag_search":
+                result = TOOLS[tool_name](tool_input, tenant_id=state.get("tenant_id", ""))
+            else:
+                result = TOOLS[tool_name](tool_input)
         latency = int((time.time() - start) * 1000)
 
         last_step["result"] = result

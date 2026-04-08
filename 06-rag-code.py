@@ -8,16 +8,40 @@ from datetime import datetime, timezone
 import httpx
 import redis
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
 from langfuse import Langfuse
 from minio import Minio
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.trace.propagation import set_span_in_context
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
+# --- OpenTelemetry setup ---
+resource = Resource.create({"service.name": "rag-service", "service.version": "1.0.0"})
+provider = TracerProvider(resource=resource)
+
+# Export to OTLP collector if configured, otherwise console
+OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+if OTLP_ENDPOINT:
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_ENDPOINT)))
+else:
+    provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+
+trace.set_tracer_provider(provider)
+tracer = trace.get_tracer("rag-service")
+
 app = FastAPI(title="Raj RAG Service")
+FastAPIInstrumentor.instrument_app(app)
+HTTPXClientInstrumentor().instrument()
 
 # --- Prometheus metrics ---
 QUERY_LATENCY = Histogram("rag_query_duration_seconds", "RAG query latency", ["model", "route", "tenant_id"], buckets=[0.5, 1, 2, 5, 10, 30, 60])
@@ -110,8 +134,9 @@ except:
 DEFAULT_TENANT = os.environ.get("DEFAULT_TENANT", "default")
 
 def embed(text):
-    r = httpx.post(f"{EMBEDDING_URL}/embed", json={"inputs": text}, timeout=30)
-    return r.json()[0]
+    with tracer.start_as_current_span("embed-text", attributes={"text.length": len(text)}):
+        r = httpx.post(f"{EMBEDDING_URL}/embed", json={"inputs": text}, timeout=30)
+        return r.json()[0]
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -257,9 +282,10 @@ def query(q: dict):
         try: retrieval_span = trace.span(name="qdrant-search", input={"top_k": TOP_K, "collection": collection})
         except: pass
     vs_start = time.time()
-    results = qdrant.query_points(
-        collection_name=collection, query=query_vector, limit=TOP_K
-    ).points
+    with tracer.start_as_current_span("qdrant-search", attributes={"collection": collection, "top_k": TOP_K}):
+        results = qdrant.query_points(
+            collection_name=collection, query=query_vector, limit=TOP_K
+        ).points
     VECTOR_SEARCH_LATENCY.observe(time.time() - vs_start)
 
     context_parts = []
@@ -292,12 +318,13 @@ Question: {question}"""
         except: pass
     try:
         llm_start = time.time()
-        llm_response = httpx.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={"model": selected_model, "prompt": prompt, "stream": False},
-            timeout=120
-        )
-        llm_data = llm_response.json()
+        with tracer.start_as_current_span("llm-generate", attributes={"model": selected_model, "route": route}) as llm_span:
+            llm_response = httpx.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={"model": selected_model, "prompt": prompt, "stream": False},
+                timeout=120
+            )
+            llm_data = llm_response.json()
         LLM_LATENCY.labels(model=selected_model).observe(time.time() - llm_start)
         answer = llm_data.get("response", "LLM error")
         tokens_used = llm_data.get("eval_count", 0)
@@ -336,10 +363,15 @@ Question: {question}"""
     QUERY_LATENCY.labels(model=selected_model, route=route, tenant_id=tenant_id).observe(time.time() - start_time)
     ACTIVE_QUERIES.dec()
 
+    # Get current trace ID for correlation
+    span = trace.get_current_span()
+    trace_id = format(span.get_span_context().trace_id, '032x') if span.get_span_context().trace_id else ""
+
     result = {
         "answer": answer, "sources": sources, "cached": False,
         "query_id": query_id, "tenant_id": tenant_id,
-        "collection": collection, "model": selected_model, "route": route
+        "collection": collection, "model": selected_model, "route": route,
+        "trace_id": trace_id
     }
     cache.setex(cache_key, 3600, json.dumps(result))
     return result
