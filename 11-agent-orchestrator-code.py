@@ -289,8 +289,15 @@ def act_node(state: AgentState) -> AgentState:
     tool_input = last_step["input"]
 
     if tool_name == "final_answer":
-        state["answer"] = tool_input
-        state["status"] = "completed"
+        # Don't accept final_answer before step 4 — force the agent to gather data first
+        if state["current_step"] < 4:
+            last_step["tool"] = "rag_search"
+            last_step["input"] = state["question"]
+            tool_name = "rag_search"
+            tool_input = state["question"]
+        else:
+            state["answer"] = tool_input
+            state["status"] = "completed"
         publish("agent.trace", {
             "session_id": state["session_id"],
             "step": state["current_step"],

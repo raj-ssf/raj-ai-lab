@@ -71,7 +71,7 @@ echo "(Agent will: check inventory, query Neo4j for suppliers, search docs, reco
 echo ""
 curl -s -X POST "$AGENT_URL/agent/run" \
   -H "Content-Type: application/json" \
-  -d '{"question": "URGENT: Acme Bearings shipment of 500 SKF-32210 bearings delayed 5 days. We have 3.9 days inventory at 320/day consumption. Revenue risk $1.68M/day. Find alternative suppliers, check inventory, and recommend immediate action."}' | python3 -c "
+  -d '{"question": "URGENT: Acme Bearings shipment of 500 SKF-32210 bearings delayed 5 days. We have 3.9 days inventory at 320/day consumption. Revenue risk $1.68M/day. Find alternative suppliers, check inventory, and recommend immediate action.", "tenant_id": "acme-corp"}' | python3 -c "
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Session: {d.get(\"session_id\")}')
@@ -87,10 +87,10 @@ echo "════════════════════════�
 echo "  INSPECT THE DATA FLOW"
 echo "════════════════════════════════════════════════════════════"
 echo ""
-echo "  Kafka UI:    http://localhost:9091 → Topics → query.log, agent.trace"
-echo "  Langfuse:    http://localhost:3001 → Traces"
-echo "  Qdrant:      http://localhost:6333/dashboard → collection raj-docs-acme-corp"
-echo "  Neo4j:       http://localhost:7474 → MATCH (n)-[r]->(m) RETURN n,r,m"
-echo "  MinIO:       http://localhost:9001 → bucket raj-documents → acme-corp/"
-echo "  Grafana:     http://localhost:3000 → Raj AI Lab dashboard"
+echo "  Kafka UI:    http://kafka.raj-ai-lab.localhost:8080 → Topics → query.log, agent.trace"
+echo "  Langfuse:    http://langfuse.raj-ai-lab.localhost:8080 → Traces"
+echo "  Qdrant:      http://qdrant.raj-ai-lab.localhost:8080/dashboard → collection raj-docs-acme-corp"
+echo "  Neo4j:       http://neo4j.raj-ai-lab.localhost:8080 → MATCH (n)-[r]->(m) RETURN n,r,m"
+echo "  MinIO:       http://minio.raj-ai-lab.localhost:8080 → bucket raj-documents → acme-corp/"
+echo "  Grafana:     http://grafana.raj-ai-lab.localhost:8080 → Raj AI Lab dashboard"
 echo ""
