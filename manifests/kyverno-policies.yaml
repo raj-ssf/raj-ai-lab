@@ -1,0 +1,167 @@
+---
+# Policy 1: All containers must have resource limits
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: Require Resource Limits
+    policies.kyverno.io/description: All containers must specify CPU and memory limits to prevent resource starvation.
+spec:
+  validationFailureAction: Audit  # Audit mode first (warn, don't block)
+  background: true
+  rules:
+    - name: check-resource-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - ai-data
+                - ai-platform
+      validate:
+        message: "Container {{request.object.spec.containers[].name}} must have CPU and memory limits set."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  limits:
+                    memory: "?*"
+                    cpu: "?*"
+---
+# Policy 2: Disallow latest tag in production namespaces
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Tag
+    policies.kyverno.io/description: Images must use a specific tag, not :latest, for traceability.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - ai-data
+                - ai-platform
+      validate:
+        message: "Image '{{request.object.spec.containers[].image}}' uses :latest tag. Use a specific version tag."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+---
+# Policy 3: Require labels on all deployments
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-app-label
+  annotations:
+    policies.kyverno.io/title: Require App Label
+    policies.kyverno.io/description: All pods must have an 'app' label for service discovery and monitoring.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-app-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - ai-data
+                - ai-platform
+      validate:
+        message: "Pod must have an 'app' label."
+        pattern:
+          metadata:
+            labels:
+              app: "?*"
+---
+# Policy 4: Disallow running as root
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-root-user
+  annotations:
+    policies.kyverno.io/title: Disallow Root User
+    policies.kyverno.io/description: Containers should not run as root for security.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - ai-platform
+      validate:
+        message: "Containers must not run as root. Set runAsNonRoot: true."
+        pattern:
+          spec:
+            =(securityContext):
+              =(runAsNonRoot): true
+---
+# Policy 5: Auto-add default labels (MUTATING policy)
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-labels
+  annotations:
+    policies.kyverno.io/title: Add Default Labels
+    policies.kyverno.io/description: Automatically adds managed-by and environment labels to all pods.
+spec:
+  rules:
+    - name: add-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - ai-data
+                - ai-platform
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              managed-by: raj-ai-lab
+              environment: lab
+---
+# Policy 6: Require probes for long-running services
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-readiness-probe
+  annotations:
+    policies.kyverno.io/title: Require Readiness Probe
+    policies.kyverno.io/description: Deployments should have readiness probes for proper load balancing.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-readiness-probe
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - ai-platform
+      validate:
+        message: "Container {{request.object.spec.containers[].name}} should have a readinessProbe."
+        pattern:
+          spec:
+            containers:
+              - readinessProbe: "?*"
