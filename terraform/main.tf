@@ -296,6 +296,12 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: ai-data
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+        - /metadata/labels
   syncPolicy:
     automated:
       prune: true
@@ -317,6 +323,12 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: ai-platform
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+        - /metadata/labels
   syncPolicy:
     automated:
       prune: true
