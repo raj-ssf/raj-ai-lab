@@ -372,6 +372,9 @@ resource "null_resource" "post_install" {
       # Kyverno policies
       kubectl $CTX apply -f ${var.manifests_dir}/kyverno-policies.yaml 2>/dev/null || true
 
+      # Extra ingress rules for monitoring + argocd namespaces
+      kubectl $CTX apply -f ${var.manifests_dir}/post-install/ingress-extras.yaml 2>/dev/null || true
+
       echo "Post-install manifests applied"
     EOT
   }
@@ -399,12 +402,7 @@ resource "helm_release" "ingress_nginx" {
 
   set {
     name  = "controller.service.type"
-    value = "NodePort"
-  }
-
-  set {
-    name  = "controller.service.nodePorts.http"
-    value = "30080"
+    value = "LoadBalancer"
   }
 }
 
