@@ -142,10 +142,10 @@ spec:
               # Create role
               client.auth.kubernetes.create_role(
                   name="ai-platform",
-                  bound_service_account_names=["default", "*"],
+                  bound_service_account_names=["*"],
                   bound_service_account_namespaces=["ai-platform", "ai-data"],
-                  token_policies=["ai-platform-read"],
-                  token_ttl="1h",
+                  policies=["ai-platform-read"],
+                  ttl="1h",
               )
               print("Role ai-platform created")
 
