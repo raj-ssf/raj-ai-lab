@@ -25,7 +25,10 @@ spec:
             - name: POSTGRES_USER
               value: ai_app
             - name: POSTGRES_PASSWORD
-              value: raj-lab-password
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-credentials
+                  key: password
           readinessProbe:
             tcpSocket:
               port: 5432

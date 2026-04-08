@@ -12,9 +12,6 @@ data:
   REDIS_URL: "redis://redis.ai-data:6379"
   TOP_K: "3"
   KAFKA_BOOTSTRAP: "kafka.ai-data:9092"
-  LANGFUSE_PUBLIC_KEY: "pk-lf-ca45825c-e015-4c7c-b8bc-ed14572ec860"
-  LANGFUSE_SECRET_KEY: "sk-lf-053f2654-f967-4c5d-9612-0405a54c41af"
-  LANGFUSE_HOST: "http://langfuse.ai-platform:3001"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -47,6 +44,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: rag-config
+          env:
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: public_key
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: secret_key
+            - name: LANGFUSE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: host
           resources:
             requests:
               cpu: 200m

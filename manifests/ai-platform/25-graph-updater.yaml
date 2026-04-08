@@ -25,7 +25,10 @@ spec:
             - name: NEO4J_USER
               value: "neo4j"
             - name: NEO4J_PASSWORD
-              value: "rajailab123"
+              valueFrom:
+                secretKeyRef:
+                  name: neo4j-credentials
+                  key: password
           readinessProbe:
             exec:
               command: ["python3", "-c", "import os; os.getpid()"]

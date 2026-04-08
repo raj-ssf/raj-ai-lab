@@ -37,9 +37,15 @@ spec:
             - name: LANGFUSE_INIT_PROJECT_NAME
               value: "raj-ai-lab"
             - name: LANGFUSE_INIT_PROJECT_PUBLIC_KEY
-              value: "pk-lf-ca45825c-e015-4c7c-b8bc-ed14572ec860"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: public_key
             - name: LANGFUSE_INIT_PROJECT_SECRET_KEY
-              value: "sk-lf-053f2654-f967-4c5d-9612-0405a54c41af"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: secret_key
             - name: LANGFUSE_INIT_USER_EMAIL
               value: "raj@lab.local"
             - name: LANGFUSE_INIT_USER_NAME

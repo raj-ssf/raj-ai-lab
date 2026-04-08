@@ -37,13 +37,25 @@ spec:
             - name: NEO4J_USER
               value: "neo4j"
             - name: NEO4J_PASSWORD
-              value: "rajailab123"
+              valueFrom:
+                secretKeyRef:
+                  name: neo4j-credentials
+                  key: password
             - name: LANGFUSE_PUBLIC_KEY
-              value: "pk-lf-ca45825c-e015-4c7c-b8bc-ed14572ec860"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: public_key
             - name: LANGFUSE_SECRET_KEY
-              value: "sk-lf-053f2654-f967-4c5d-9612-0405a54c41af"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: secret_key
             - name: LANGFUSE_HOST
-              value: "http://langfuse.ai-platform:3001"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-credentials
+                  key: host
           ports:
             - containerPort: 8001
           readinessProbe:

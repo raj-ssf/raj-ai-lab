@@ -29,9 +29,15 @@ spec:
               name: console
           env:
             - name: MINIO_ROOT_USER
-              value: "rajailab"
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: access_key
             - name: MINIO_ROOT_PASSWORD
-              value: "rajailab123"
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secret_key
           resources:
             requests:
               cpu: 100m
