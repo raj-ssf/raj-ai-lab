@@ -13,7 +13,7 @@ from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
 from langfuse import Langfuse
 from minio import Minio
-from opentelemetry import trace
+from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -36,8 +36,8 @@ if OTLP_ENDPOINT:
 else:
     provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
 
-trace.set_tracer_provider(provider)
-tracer = trace.get_tracer("rag-service")
+otel_trace.set_tracer_provider(provider)
+tracer = otel_trace.get_tracer("rag-service")
 
 app = FastAPI(title="Raj RAG Service")
 FastAPIInstrumentor.instrument_app(app)
@@ -364,7 +364,7 @@ Question: {question}"""
     ACTIVE_QUERIES.dec()
 
     # Get current trace ID for correlation
-    span = trace.get_current_span()
+    span = otel_trace.get_current_span()
     trace_id = format(span.get_span_context().trace_id, '032x') if span.get_span_context().trace_id else ""
 
     result = {

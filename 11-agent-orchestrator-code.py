@@ -18,7 +18,7 @@ from kafka import KafkaProducer
 from langfuse import Langfuse
 from langgraph.graph import END, StateGraph
 from neo4j import GraphDatabase
-from opentelemetry import trace
+from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -35,8 +35,8 @@ if OTLP_ENDPOINT:
     provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_ENDPOINT)))
 else:
     provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-trace.set_tracer_provider(provider)
-tracer = trace.get_tracer("agent-orchestrator")
+otel_trace.set_tracer_provider(provider)
+tracer = otel_trace.get_tracer("agent-orchestrator")
 
 app = FastAPI(title="Raj Agent Orchestrator")
 FastAPIInstrumentor.instrument_app(app)
