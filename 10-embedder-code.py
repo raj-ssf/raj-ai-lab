@@ -91,8 +91,10 @@ def consume_loop():
         publish("document.embedded", {
             "doc_id": doc_id,
             "source": source,
+            "tenant_id": tenant_id,
             "chunk_index": chunk_index,
             "vector_dimensions": len(vector),
+            "collection": tenant_collection,
             "point_id": point_id,
             "timestamp": now()
         })
@@ -109,8 +111,9 @@ def consume_loop():
             publish("document.indexed", {
                 "doc_id": doc_id,
                 "source": source,
+                "tenant_id": tenant_id,
                 "chunks_indexed": doc_buffers[doc_id]["done"],
-                "collection": COLLECTION,
+                "collection": tenant_collection,
                 "timestamp": now()
             })
             print(f"[embedder] COMPLETED indexing {doc_id}: {doc_buffers[doc_id]['done']} chunks")
