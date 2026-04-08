@@ -11,313 +11,247 @@ data:
       "annotations": {"list": []},
       "editable": true,
       "fiscalYearStartMonth": 0,
-      "graphTooltip": 0,
+      "graphTooltip": 1,
       "id": null,
       "links": [],
       "panels": [
         {
-          "title": "🔍 RAG — Query Performance",
+          "title": "RAG Query Performance",
           "type": "row",
           "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
           "collapsed": false
         },
         {
-          "title": "RAG Query Latency (avg)",
+          "title": "Query Latency (p50 / p95 / p99)",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 1},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 1},
           "targets": [
-            {
-              "expr": "rate(http_request_duration_seconds_sum{handler=\"/query\"}[5m]) / rate(http_request_duration_seconds_count{handler=\"/query\"}[5m])",
-              "legendFormat": "Avg latency"
-            }
+            {"expr": "histogram_quantile(0.50, sum(rate(rag_query_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50"},
+            {"expr": "histogram_quantile(0.95, sum(rate(rag_query_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95"},
+            {"expr": "histogram_quantile(0.99, sum(rate(rag_query_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99"}
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "s",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {"color": "green", "value": null},
-                  {"color": "yellow", "value": 2},
-                  {"color": "red", "value": 5}
-                ]
-              }
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 5}, {"color": "red", "value": 15}]}
             }
           }
         },
         {
-          "title": "RAG Queries / min",
-          "type": "stat",
-          "gridPos": {"h": 7, "w": 4, "x": 8, "y": 1},
-          "targets": [
-            {
-              "expr": "rate(http_requests_total{handler=\"/query\"}[5m]) * 60",
-              "legendFormat": "queries/min"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}, {"color": "green", "value": 1}]}
-            }
-          }
-        },
-        {
-          "title": "Documents Ingested / min",
-          "type": "stat",
-          "gridPos": {"h": 7, "w": 4, "x": 12, "y": 1},
-          "targets": [
-            {"expr": "rate(http_requests_total{handler=\"/ingest\"}[5m]) * 60", "legendFormat": "ingests/min"}
-          ]
-        },
-        {
-          "title": "Cache Hit Rate",
-          "type": "gauge",
-          "gridPos": {"h": 7, "w": 4, "x": 16, "y": 1},
-          "targets": [
-            {"expr": "redis_db_keys{db=\"db0\"}", "legendFormat": "cached queries"}
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "thresholds": {"mode": "absolute", "steps": [{"color": "yellow", "value": null}, {"color": "green", "value": 10}]}
-            }
-          }
-        },
-        {
-          "title": "Multi-Model Routing",
-          "type": "piechart",
-          "gridPos": {"h": 7, "w": 4, "x": 20, "y": 1},
-          "targets": [
-            {"expr": "count by (model) (http_requests_total{handler=\"/query\"})", "legendFormat": "{{model}}"}
-          ]
-        },
-
-        {
-          "title": "🤖 Agent — Orchestrator Metrics",
-          "type": "row",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 8},
-          "collapsed": false
-        },
-        {
-          "title": "Agent CPU Usage",
+          "title": "Queries / min (by model)",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 9},
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 1},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\", pod=~\"agent-orchestrator.*\"}[5m])", "legendFormat": "{{pod}}"}
+            {"expr": "sum(rate(rag_query_total[5m])) by (model) * 60", "legendFormat": "{{model}}"}
           ],
           "fieldConfig": {"defaults": {"unit": "short"}}
         },
         {
-          "title": "Agent Memory",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 9},
+          "title": "Cache Hit Rate",
+          "type": "gauge",
+          "gridPos": {"h": 8, "w": 4, "x": 16, "y": 1},
           "targets": [
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-platform\", pod=~\"agent-orchestrator.*\"} / 1024 / 1024", "legendFormat": "{{pod}} MB"}
+            {"expr": "sum(rate(rag_cache_hits_total[5m])) / (sum(rate(rag_cache_hits_total[5m])) + sum(rate(rag_cache_misses_total[5m]))) * 100", "legendFormat": "hit %"}
           ],
-          "fieldConfig": {"defaults": {"unit": "decmbytes"}}
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0, "max": 100,
+              "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 30}, {"color": "green", "value": 60}]}
+            }
+          }
         },
         {
-          "title": "Agent Network I/O",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 9},
+          "title": "Model Routing Split",
+          "type": "piechart",
+          "gridPos": {"h": 8, "w": 4, "x": 20, "y": 1},
           "targets": [
-            {"expr": "rate(container_network_receive_bytes_total{namespace=\"ai-platform\", pod=~\"agent-orchestrator.*\"}[5m]) / 1024", "legendFormat": "rx KB/s"},
-            {"expr": "rate(container_network_transmit_bytes_total{namespace=\"ai-platform\", pod=~\"agent-orchestrator.*\"}[5m]) / 1024", "legendFormat": "tx KB/s"}
+            {"expr": "sum by (route) (rag_query_total)", "legendFormat": "{{route}}"}
+          ]
+        },
+
+        {
+          "title": "RAG Internals",
+          "type": "row",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9},
+          "collapsed": false
+        },
+        {
+          "title": "LLM Latency (by model)",
+          "type": "timeseries",
+          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 10},
+          "targets": [
+            {"expr": "histogram_quantile(0.95, sum(rate(rag_llm_duration_seconds_bucket[5m])) by (le, model))", "legendFormat": "{{model}} p95"}
           ],
-          "fieldConfig": {"defaults": {"unit": "KBs"}}
-        },
-
-        {
-          "title": "📊 Pipeline — Normalizer / Chunker / Embedder",
-          "type": "row",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 16},
-          "collapsed": false
+          "fieldConfig": {"defaults": {"unit": "s"}}
         },
         {
-          "title": "Normalizer CPU",
+          "title": "Embedding Latency (p95)",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 17},
+          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 10},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\", pod=~\"normalizer.*\"}[5m])", "legendFormat": "normalizer"}
-          ]
+            {"expr": "histogram_quantile(0.95, sum(rate(rag_embedding_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}}
         },
         {
-          "title": "Chunker CPU",
+          "title": "Vector Search Latency (p95)",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 17},
+          "gridPos": {"h": 7, "w": 4, "x": 16, "y": 10},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\", pod=~\"chunker.*\"}[5m])", "legendFormat": "chunker"}
-          ]
+            {"expr": "histogram_quantile(0.95, sum(rate(rag_vector_search_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}}
         },
         {
-          "title": "Embedder CPU + Memory",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 17},
+          "title": "LLM Tokens / min",
+          "type": "stat",
+          "gridPos": {"h": 7, "w": 4, "x": 20, "y": 10},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\", pod=~\"embedder.*|embedding-service.*\"}[5m])", "legendFormat": "{{pod}} cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-platform\", pod=~\"embedder.*|embedding-service.*\"} / 1024 / 1024", "legendFormat": "{{pod}} MB"}
+            {"expr": "sum(rate(rag_tokens_total[5m])) * 60", "legendFormat": "tokens/min"}
           ]
         },
 
         {
-          "title": "🗄️ Data Layer — Kafka / Qdrant / Neo4j / MinIO / Redis",
+          "title": "Agent Orchestrator",
           "type": "row",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 24},
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 17},
           "collapsed": false
         },
         {
-          "title": "Kafka Broker CPU + Memory",
+          "title": "Agent Run Latency (p50 / p95)",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 25},
+          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 18},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-data\", pod=~\"kafka.*\"}[5m])", "legendFormat": "{{pod}} cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-data\", pod=~\"kafka.*\"} / 1024 / 1024", "legendFormat": "{{pod}} MB"}
+            {"expr": "histogram_quantile(0.50, sum(rate(agent_run_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50"},
+            {"expr": "histogram_quantile(0.95, sum(rate(agent_run_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "s"}}
+        },
+        {
+          "title": "Agent Steps Distribution",
+          "type": "histogram",
+          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 18},
+          "targets": [
+            {"expr": "sum(rate(agent_steps_count_bucket[5m])) by (le)", "legendFormat": "{{le}}", "format": "heatmap"}
           ]
         },
         {
-          "title": "Qdrant CPU + Memory",
+          "title": "Tool Calls (by tool)",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 25},
+          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 18},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-data\", pod=~\"qdrant.*\"}[5m])", "legendFormat": "qdrant cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-data\", pod=~\"qdrant.*\"} / 1024 / 1024", "legendFormat": "qdrant MB"}
+            {"expr": "sum(rate(agent_tool_calls_total[5m])) by (tool) * 60", "legendFormat": "{{tool}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "short"}}
+        },
+        {
+          "title": "Agent Runs / min (by status)",
+          "type": "stat",
+          "gridPos": {"h": 4, "w": 8, "x": 0, "y": 25},
+          "targets": [
+            {"expr": "sum(rate(agent_runs_total[5m])) by (status) * 60", "legendFormat": "{{status}}"}
           ]
         },
         {
-          "title": "Neo4j CPU + Memory",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 25},
+          "title": "Active Agents",
+          "type": "gauge",
+          "gridPos": {"h": 4, "w": 4, "x": 8, "y": 25},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-data\", pod=~\"neo4j.*\"}[5m])", "legendFormat": "neo4j cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-data\", pod=~\"neo4j.*\"} / 1024 / 1024", "legendFormat": "neo4j MB"}
+            {"expr": "agent_active_runs", "legendFormat": "active"}
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "min": 0, "max": 10,
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 5}, {"color": "red", "value": 8}]}
+            }
+          }
+        },
+        {
+          "title": "Tokens per Run (avg)",
+          "type": "stat",
+          "gridPos": {"h": 4, "w": 4, "x": 12, "y": 25},
+          "targets": [
+            {"expr": "histogram_quantile(0.5, sum(rate(agent_tokens_total_bucket[5m])) by (le))", "legendFormat": "median tokens"}
           ]
         },
         {
-          "title": "MinIO CPU + Memory",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 32},
+          "title": "Ingestions / min",
+          "type": "stat",
+          "gridPos": {"h": 4, "w": 4, "x": 16, "y": 25},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-data\", pod=~\"minio.*\"}[5m])", "legendFormat": "minio cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-data\", pod=~\"minio.*\"} / 1024 / 1024", "legendFormat": "minio MB"}
+            {"expr": "sum(rate(rag_ingest_total[5m])) * 60", "legendFormat": "ingests/min"}
           ]
         },
         {
-          "title": "Redis CPU + Memory",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 32},
+          "title": "Active Queries",
+          "type": "gauge",
+          "gridPos": {"h": 4, "w": 4, "x": 20, "y": 25},
           "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-data\", pod=~\"redis.*\"}[5m])", "legendFormat": "redis cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-data\", pod=~\"redis.*\"} / 1024 / 1024", "legendFormat": "redis MB"}
-          ]
-        },
-        {
-          "title": "PostgreSQL CPU + Memory",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 32},
-          "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-data\", pod=~\"postgresql.*\"}[5m])", "legendFormat": "postgresql cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-data\", pod=~\"postgresql.*\"} / 1024 / 1024", "legendFormat": "postgresql MB"}
+            {"expr": "rag_active_queries", "legendFormat": "active"}
           ]
         },
 
         {
-          "title": "👁️ Observability — Langfuse / Evaluation",
+          "title": "Infrastructure Health",
           "type": "row",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39},
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 29},
           "collapsed": false
         },
         {
-          "title": "Langfuse CPU + Memory",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 40},
-          "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\", pod=~\"langfuse.*\"}[5m])", "legendFormat": "langfuse cpu"},
-            {"expr": "container_memory_working_set_bytes{namespace=\"ai-platform\", pod=~\"langfuse.*\"} / 1024 / 1024", "legendFormat": "langfuse MB"}
-          ]
-        },
-        {
-          "title": "Evaluation CPU",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 40},
-          "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\", pod=~\"evaluation.*\"}[5m])", "legendFormat": "evaluation"}
-          ]
-        },
-        {
-          "title": "Graph Updater CPU",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 40},
-          "targets": [
-            {"expr": "rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\", pod=~\"graph-updater.*\"}[5m])", "legendFormat": "graph-updater"}
-          ]
-        },
-
-        {
-          "title": "🏥 Health — Restarts / HPA / Disk",
-          "type": "row",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 47},
-          "collapsed": false
-        },
-        {
-          "title": "Pod Restarts (ai-data + ai-platform)",
+          "title": "Pod Restarts",
           "type": "table",
-          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 48},
+          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 30},
           "targets": [
-            {"expr": "kube_pod_container_status_restarts_total{namespace=~\"ai-data|ai-platform\"} > 0", "format": "table", "instant": true, "legendFormat": "{{namespace}}/{{pod}}"}
+            {"expr": "kube_pod_container_status_restarts_total{namespace=~\"ai-data|ai-platform\"} > 0", "format": "table", "instant": true}
           ]
         },
         {
           "title": "HPA — RAG Service Replicas",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 48},
+          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 30},
           "targets": [
-            {"expr": "kube_horizontalpodautoscaler_status_current_replicas{horizontalpodautoscaler=\"rag-service-hpa\"}", "legendFormat": "current replicas"},
-            {"expr": "kube_horizontalpodautoscaler_status_desired_replicas{horizontalpodautoscaler=\"rag-service-hpa\"}", "legendFormat": "desired replicas"},
-            {"expr": "kube_horizontalpodautoscaler_spec_max_replicas{horizontalpodautoscaler=\"rag-service-hpa\"}", "legendFormat": "max replicas"}
+            {"expr": "kube_horizontalpodautoscaler_status_current_replicas{horizontalpodautoscaler=\"rag-service-hpa\"}", "legendFormat": "current"},
+            {"expr": "kube_horizontalpodautoscaler_status_desired_replicas{horizontalpodautoscaler=\"rag-service-hpa\"}", "legendFormat": "desired"},
+            {"expr": "kube_horizontalpodautoscaler_spec_max_replicas{horizontalpodautoscaler=\"rag-service-hpa\"}", "legendFormat": "max"}
           ]
         },
         {
           "title": "PVC Disk Usage",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 48},
+          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 30},
           "targets": [
             {"expr": "kubelet_volume_stats_used_bytes{namespace=~\"ai-data\"} / 1024 / 1024", "legendFormat": "{{persistentvolumeclaim}} MB"}
           ],
           "fieldConfig": {"defaults": {"unit": "decmbytes"}}
         },
-
         {
-          "title": "🌐 Network — All Services",
-          "type": "row",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 55},
-          "collapsed": false
+          "title": "CPU by Service",
+          "type": "timeseries",
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 37},
+          "targets": [
+            {"expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"ai-data|ai-platform\", container!=\"\"}[5m])) by (pod)", "legendFormat": "{{pod}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 5}}}
         },
         {
-          "title": "Network Receive — ai-platform",
+          "title": "Memory by Service",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 56},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 37},
           "targets": [
-            {"expr": "sum(rate(container_network_receive_bytes_total{namespace=\"ai-platform\"}[5m])) by (pod) / 1024", "legendFormat": "{{pod}}"}
+            {"expr": "sum(container_memory_working_set_bytes{namespace=~\"ai-data|ai-platform\", container!=\"\"}) by (pod) / 1024 / 1024", "legendFormat": "{{pod}} MB"}
           ],
-          "fieldConfig": {"defaults": {"unit": "KBs", "custom": {"lineWidth": 1, "fillOpacity": 5}}}
-        },
-        {
-          "title": "Network Receive — ai-data",
-          "type": "timeseries",
-          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 56},
-          "targets": [
-            {"expr": "sum(rate(container_network_receive_bytes_total{namespace=\"ai-data\"}[5m])) by (pod) / 1024", "legendFormat": "{{pod}}"}
-          ],
-          "fieldConfig": {"defaults": {"unit": "KBs", "custom": {"lineWidth": 1, "fillOpacity": 5}}}
+          "fieldConfig": {"defaults": {"unit": "decmbytes", "custom": {"lineWidth": 1, "fillOpacity": 5}}}
         }
       ],
       "schemaVersion": 39,
-      "tags": ["ai", "rag", "kafka", "qdrant", "neo4j", "agent", "pipeline"],
+      "tags": ["ai", "rag", "agent", "pipeline"],
       "templating": {"list": []},
       "time": {"from": "now-1h", "to": "now"},
       "timepicker": {},
       "timezone": "",
-      "title": "Raj AI Lab — AI Metrics",
+      "title": "Raj AI Lab",
       "uid": "raj-ai-metrics",
-      "version": 2,
+      "version": 3,
       "weekStart": ""
     }

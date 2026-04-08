@@ -1,0 +1,95 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: raj-ai-lab-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: rag-service
+      rules:
+        - alert: RAGHighQueryLatency
+          expr: histogram_quantile(0.95, sum(rate(rag_query_duration_seconds_bucket[5m])) by (le)) > 15
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "RAG query p95 latency above 15s"
+            description: "p95 latency is {{ $value | humanizeDuration }}"
+
+        - alert: RAGLowCacheHitRate
+          expr: |
+            sum(rate(rag_cache_hits_total[15m])) / (sum(rate(rag_cache_hits_total[15m])) + sum(rate(rag_cache_misses_total[15m]))) < 0.1
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: "RAG cache hit rate below 10%"
+            description: "Cache hit rate is {{ $value | humanizePercentage }}"
+
+        - alert: RAGHighTokenBurn
+          expr: sum(rate(rag_tokens_total[5m])) * 60 > 5000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "LLM token consumption above 5000/min"
+            description: "Current rate: {{ $value }} tokens/min"
+
+    - name: agent
+      rules:
+        - alert: AgentHighFailureRate
+          expr: |
+            sum(rate(agent_runs_total{status!="completed"}[10m])) / sum(rate(agent_runs_total[10m])) > 0.3
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Agent failure rate above 30%"
+            description: "{{ $value | humanizePercentage }} of agent runs are failing"
+
+        - alert: AgentHighLatency
+          expr: histogram_quantile(0.95, sum(rate(agent_run_duration_seconds_bucket[5m])) by (le)) > 30
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Agent p95 run time above 30s"
+
+    - name: infrastructure
+      rules:
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{namespace=~"ai-data|ai-platform"}[15m]) * 60 * 15 > 3
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash-looping"
+            description: "{{ $value }} restarts in last 15 minutes"
+
+        - alert: PVCNearlyFull
+          expr: kubelet_volume_stats_used_bytes{namespace="ai-data"} / kubelet_volume_stats_capacity_bytes{namespace="ai-data"} > 0.85
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PVC {{ $labels.persistentvolumeclaim }} is over 85% full"
+
+        - alert: HighMemoryUsage
+          expr: |
+            sum(container_memory_working_set_bytes{namespace=~"ai-data|ai-platform", container!=""}) by (pod)
+            / sum(kube_pod_container_resource_limits{namespace=~"ai-data|ai-platform", resource="memory"}) by (pod) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} memory usage above 90% of limit"
+
+        - alert: BackupJobFailed
+          expr: kube_job_status_failed{namespace="ai-data", job_name=~"data-backup.*"} > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Data backup job failed"
