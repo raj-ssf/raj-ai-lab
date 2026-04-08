@@ -20,6 +20,16 @@ spec:
           env:
             - name: KAFKA_BOOTSTRAP
               value: "kafka.ai-data:9092"
+          readinessProbe:
+            exec:
+              command: ["python3", "-c", "import os; os.getpid()"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["python3", "-c", "import os; os.getpid()"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 100m

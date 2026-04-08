@@ -26,6 +26,16 @@ spec:
               value: "http://qdrant.ai-data:6333"
             - name: QDRANT_COLLECTION
               value: "raj-docs"
+          readinessProbe:
+            exec:
+              command: ["python3", "-c", "import os; os.getpid()"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["python3", "-c", "import os; os.getpid()"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 200m

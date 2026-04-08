@@ -19,6 +19,16 @@ spec:
           image: redis:7-alpine
           ports:
             - containerPort: 6379
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 15
+            periodSeconds: 15
           resources:
             requests:
               cpu: 100m

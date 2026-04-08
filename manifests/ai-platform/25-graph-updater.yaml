@@ -26,6 +26,16 @@ spec:
               value: "neo4j"
             - name: NEO4J_PASSWORD
               value: "rajailab123"
+          readinessProbe:
+            exec:
+              command: ["python3", "-c", "import os; os.getpid()"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["python3", "-c", "import os; os.getpid()"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 100m

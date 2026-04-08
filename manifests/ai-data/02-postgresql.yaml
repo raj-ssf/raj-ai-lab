@@ -26,6 +26,16 @@ spec:
               value: ai_app
             - name: POSTGRES_PASSWORD
               value: raj-lab-password
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 100m

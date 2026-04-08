@@ -22,6 +22,18 @@ spec:
               value: "http://rag-service.ai-platform:8000"
           ports:
             - containerPort: 7860
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 7860
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 7860
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 100m

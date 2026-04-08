@@ -46,6 +46,18 @@ spec:
               value: "http://langfuse.ai-platform:3001"
           ports:
             - containerPort: 8001
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 20
+            periodSeconds: 15
           resources:
             requests:
               cpu: 200m
