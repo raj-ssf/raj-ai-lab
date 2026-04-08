@@ -282,6 +282,7 @@ When ready to answer:
         # Log to Kafka
         publish("agent.trace", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": step_num,
             "action": "reason",
             "decision": decision,
@@ -305,6 +306,7 @@ When ready to answer:
         state["answer"] = f"Reasoning failed: {e}"
         publish("agent.trace", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": step_num,
             "action": "reason_error",
             "error": str(e),
@@ -335,6 +337,7 @@ def act_node(state: AgentState) -> AgentState:
             state["status"] = "completed"
         publish("agent.trace", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "action": "final_answer",
             "answer": tool_input[:200],
@@ -357,6 +360,7 @@ def act_node(state: AgentState) -> AgentState:
 
         publish("agent.trace", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "action": f"tool:{tool_name}",
             "input": tool_input,
@@ -367,6 +371,7 @@ def act_node(state: AgentState) -> AgentState:
 
         publish("agent.action", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "tool": tool_name,
             "input": tool_input[:500],
@@ -395,6 +400,7 @@ def should_continue(state: AgentState) -> str:
         state["answer"] = "Agent killed by operator"
         publish("agent.trace", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "action": "killed",
             "reason": "kill_switch=true",
@@ -412,6 +418,7 @@ def should_continue(state: AgentState) -> str:
         state["answer"] = f"Exceeded max steps ({MAX_STEPS})"
         publish("agent.trace", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "action": "guardrail_stop",
             "reason": f"max_steps={MAX_STEPS}",
@@ -425,6 +432,7 @@ def should_continue(state: AgentState) -> str:
         state["answer"] = f"Exceeded token budget ({MAX_TOKENS})"
         publish("agent.trace", {
             "session_id": state["session_id"],
+            "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "action": "guardrail_stop",
             "reason": f"max_tokens={MAX_TOKENS}",
@@ -477,6 +485,7 @@ def run_agent(req: dict):
 
     publish("agent.trace", {
         "session_id": session_id,
+        "tenant_id": tenant_id,
         "step": 0,
         "action": "start",
         "question": question,
@@ -536,6 +545,7 @@ def run_agent(req: dict):
     # Log completion to Kafka
     publish("agent.cost", {
         "session_id": session_id,
+        "tenant_id": tenant_id,
         "model": OLLAMA_MODEL,
         "total_steps": final_state["current_step"],
         "total_tokens": final_state["total_tokens"],
