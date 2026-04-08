@@ -1,0 +1,232 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-metrics-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  ai-metrics.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "title": "RAG Query Latency (avg)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "targets": [
+            {
+              "expr": "rate(http_request_duration_seconds_sum{handler=\"/query\"}[5m]) / rate(http_request_duration_seconds_count{handler=\"/query\"}[5m])",
+              "legendFormat": "Avg latency"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 2},
+                  {"color": "red", "value": 5}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "RAG Queries / min",
+          "type": "stat",
+          "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+          "targets": [
+            {
+              "expr": "rate(http_requests_total{handler=\"/query\"}[5m]) * 60",
+              "legendFormat": "queries/min"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "blue", "value": null},
+                  {"color": "green", "value": 1}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Documents Ingested / min",
+          "type": "stat",
+          "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+          "targets": [
+            {
+              "expr": "rate(http_requests_total{handler=\"/ingest\"}[5m]) * 60",
+              "legendFormat": "ingests/min"
+            }
+          ]
+        },
+        {
+          "title": "Pod CPU Usage — ai-platform",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"ai-platform\"}[5m])) by (pod)",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {"lineWidth": 1, "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "Pod Memory Usage — ai-platform",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "targets": [
+            {
+              "expr": "sum(container_memory_working_set_bytes{namespace=\"ai-platform\"}) by (pod) / 1024 / 1024",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes",
+              "custom": {"lineWidth": 1, "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "Pod CPU Usage — ai-data",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"ai-data\"}[5m])) by (pod)",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {"lineWidth": 1, "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "Pod Memory Usage — ai-data",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "targets": [
+            {
+              "expr": "sum(container_memory_working_set_bytes{namespace=\"ai-data\"}) by (pod) / 1024 / 1024",
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes",
+              "custom": {"lineWidth": 1, "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "Kafka Consumer Lag",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+          "targets": [
+            {
+              "expr": "kafka_consumergroup_lag",
+              "legendFormat": "{{group}} — {{topic}}"
+            }
+          ]
+        },
+        {
+          "title": "Qdrant Vectors Count",
+          "type": "stat",
+          "gridPos": {"h": 8, "w": 6, "x": 12, "y": 24},
+          "targets": [
+            {
+              "expr": "qdrant_collections_total_points",
+              "legendFormat": "vectors"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "blue", "value": null},
+                  {"color": "green", "value": 100}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Redis Cache Keys",
+          "type": "stat",
+          "gridPos": {"h": 8, "w": 6, "x": 18, "y": 24},
+          "targets": [
+            {
+              "expr": "redis_db_keys",
+              "legendFormat": "keys"
+            }
+          ]
+        },
+        {
+          "title": "Pod Restarts",
+          "type": "table",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+          "targets": [
+            {
+              "expr": "kube_pod_container_status_restarts_total{namespace=~\"ai-data|ai-platform\"} > 0",
+              "legendFormat": "{{namespace}}/{{pod}}",
+              "format": "table",
+              "instant": true
+            }
+          ]
+        },
+        {
+          "title": "Network I/O — ai-platform",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+          "targets": [
+            {
+              "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"ai-platform\"}[5m])) by (pod) / 1024",
+              "legendFormat": "{{pod}} (rx)"
+            },
+            {
+              "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"ai-platform\"}[5m])) by (pod) / 1024",
+              "legendFormat": "{{pod}} (tx)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "KBs",
+              "custom": {"lineWidth": 1, "fillOpacity": 5}
+            }
+          }
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["ai", "rag", "kafka", "qdrant"],
+      "templating": {"list": []},
+      "time": {"from": "now-1h", "to": "now"},
+      "timepicker": {},
+      "timezone": "",
+      "title": "Raj AI Lab — AI Metrics",
+      "uid": "raj-ai-metrics",
+      "version": 1,
+      "weekStart": ""
+    }
