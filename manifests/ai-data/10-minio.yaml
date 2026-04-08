@@ -102,23 +102,3 @@ spec:
   selector:
     matchLabels:
       app: minio
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: minio-ingress
-  namespace: ai-data
-spec:
-  podSelector:
-    matchLabels:
-      app: minio
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ai-platform
-      ports:
-        - port: 9000
-        - port: 9001
