@@ -37,22 +37,27 @@ producer = KafkaProducer(
 qdrant = QdrantClient(url=QDRANT_URL)
 
 def ensure_collection(name):
-    """Create or recreate collection if dimensions mismatch"""
+    """Create or recreate collection if dimensions mismatch. Snapshots before delete, restores if available."""
+    from qdrant_snapshots import restore_collection, snapshot_collection
     try:
         info = qdrant.get_collection(name)
         existing_dim = info.config.params.vectors.size
         if existing_dim != VECTOR_DIM:
-            print(f"[embedder] Dimension mismatch on {name}: {existing_dim} vs {VECTOR_DIM} — recreating")
+            print(f"[embedder] Dimension mismatch on {name}: {existing_dim} vs {VECTOR_DIM}")
+            if info.points_count > 0:
+                snapshot_collection(name, existing_dim)
             qdrant.delete_collection(name)
+            if not restore_collection(name, VECTOR_DIM):
+                qdrant.create_collection(
+                    collection_name=name,
+                    vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
+                )
+    except:
+        if not restore_collection(name, VECTOR_DIM):
             qdrant.create_collection(
                 collection_name=name,
                 vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
             )
-    except:
-        qdrant.create_collection(
-            collection_name=name,
-            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
-        )
 
 ensure_collection(COLLECTION)
 

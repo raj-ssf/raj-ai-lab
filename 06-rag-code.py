@@ -135,24 +135,34 @@ for _i in range(30):
         time.sleep(5)
 
 def ensure_collection(name):
-    """Create or recreate collection if dimensions mismatch"""
+    """Create or recreate collection if dimensions mismatch. Snapshots before delete, restores if available."""
+    from qdrant_snapshots import restore_collection, snapshot_collection
     try:
         info = qdrant.get_collection(name)
         existing_dim = info.config.params.vectors.size
         if existing_dim != VECTOR_DIM:
-            print(f"[rag] Dimension mismatch on {name}: {existing_dim} vs {VECTOR_DIM} — recreating")
+            print(f"[rag] Dimension mismatch on {name}: {existing_dim} vs {VECTOR_DIM}")
+            # Snapshot before deleting
+            if info.points_count > 0:
+                snapshot_collection(name, existing_dim)
             qdrant.delete_collection(name)
+            # Try to restore from a previous snapshot for the new dimensions
+            if not restore_collection(name, VECTOR_DIM):
+                qdrant.create_collection(
+                    collection_name=name,
+                    vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
+                )
+                print(f"[rag] Created fresh {name} with dim={VECTOR_DIM}")
+            else:
+                print(f"[rag] Restored {name} from snapshot with dim={VECTOR_DIM}")
+    except:
+        # Try restore first, then create fresh
+        if not restore_collection(name, VECTOR_DIM):
             qdrant.create_collection(
                 collection_name=name,
                 vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
             )
-            print(f"[rag] Recreated {name} with dim={VECTOR_DIM}")
-    except:
-        qdrant.create_collection(
-            collection_name=name,
-            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
-        )
-        print(f"[rag] Created {name} with dim={VECTOR_DIM}")
+            print(f"[rag] Created {name} with dim={VECTOR_DIM}")
 
 ensure_collection(COLLECTION)
 
