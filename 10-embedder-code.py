@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 import httpx
 from kafka import KafkaConsumer, KafkaProducer
+from kafka_config import kafka_kwargs
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
@@ -30,7 +31,7 @@ for _i in range(30):
         _time.sleep(5)
 
 producer = KafkaProducer(
-    bootstrap_servers=KAFKA_BOOTSTRAP,
+    **kafka_kwargs(),
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
@@ -76,7 +77,7 @@ def consume_loop():
     print(f"[embedder] Starting consumer on {KAFKA_BOOTSTRAP}")
     consumer = KafkaConsumer(
         "document.chunked",
-        bootstrap_servers=KAFKA_BOOTSTRAP,
+        **kafka_kwargs(),
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         group_id="embedder-group",
         auto_offset_reset="earliest"

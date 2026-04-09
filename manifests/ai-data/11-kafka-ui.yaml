@@ -21,7 +21,7 @@ spec:
             - name: KAFKA_CLUSTERS_0_NAME
               value: "raj-ai-lab"
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
-              value: "kafka.ai-data:9092"
+              value: "kafka-kafka-bootstrap.ai-data:9092"
           ports:
             - containerPort: 8080
           readinessProbe:

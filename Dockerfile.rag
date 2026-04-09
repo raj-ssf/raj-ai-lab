@@ -3,4 +3,6 @@ RUN pip install --no-cache-dir fastapi uvicorn qdrant-client httpx redis kafka-p
     opentelemetry-api opentelemetry-sdk opentelemetry-instrumentation-fastapi opentelemetry-instrumentation-httpx opentelemetry-exporter-otlp-proto-grpc
 COPY 06-rag-code.py /app/main.py
 COPY qdrant_snapshots.py /app/qdrant_snapshots.py
+COPY kafka_config.py /app/kafka_config.py
+WORKDIR /app
 CMD ["python", "/app/main.py"]

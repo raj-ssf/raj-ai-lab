@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 
 import httpx
+from kafka_config import kafka_kwargs
 
 RAG_URL = os.environ.get("RAG_URL", "http://rag-service.ai-platform:8000")
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
@@ -163,7 +164,7 @@ def run_evaluation():
     try:
         from kafka import KafkaProducer
         producer = KafkaProducer(
-            bootstrap_servers=KAFKA_BOOTSTRAP,
+            **kafka_kwargs(),
             value_serializer=lambda v: json.dumps(v).encode("utf-8")
         )
         producer.send("query.log", {

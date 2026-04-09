@@ -8,11 +8,12 @@ import uuid
 from datetime import datetime, timezone
 
 from kafka import KafkaConsumer, KafkaProducer
+from kafka_config import kafka_kwargs
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
 
 producer = KafkaProducer(
-    bootstrap_servers=KAFKA_BOOTSTRAP,
+    **kafka_kwargs(),
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
@@ -66,7 +67,7 @@ def consume_loop():
     print(f"[normalizer] Starting consumer on {KAFKA_BOOTSTRAP}")
     consumer = KafkaConsumer(
         "document.uploaded",
-        bootstrap_servers=KAFKA_BOOTSTRAP,
+        **kafka_kwargs(),
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         group_id="normalizer-group",
         auto_offset_reset="earliest"

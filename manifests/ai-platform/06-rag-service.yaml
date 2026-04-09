@@ -11,7 +11,9 @@ data:
   OLLAMA_MODEL: "llama3.2:latest"
   REDIS_URL: "redis://redis.ai-data:6379"
   TOP_K: "3"
-  KAFKA_BOOTSTRAP: "kafka.ai-data:9092"
+  KAFKA_BOOTSTRAP: "kafka-kafka-bootstrap.ai-data:9093"
+  KAFKA_SECURITY_PROTOCOL: "SSL"
+  KAFKA_CERT_DIR: "/etc/kafka-certs"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -60,6 +62,10 @@ spec:
                 secretKeyRef:
                   name: langfuse-credentials
                   key: host
+          volumeMounts:
+            - name: kafka-certs
+              mountPath: /etc/kafka-certs
+              readOnly: true
           resources:
             requests:
               cpu: 200m
@@ -79,6 +85,10 @@ spec:
               port: 8000
             initialDelaySeconds: 60
             periodSeconds: 30
+      volumes:
+        - name: kafka-certs
+          secret:
+            secretName: rag-service
 ---
 apiVersion: v1
 kind: Service

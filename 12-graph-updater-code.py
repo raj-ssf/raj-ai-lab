@@ -7,6 +7,7 @@ import os
 from datetime import datetime, timezone
 
 from kafka import KafkaConsumer, KafkaProducer
+from kafka_config import kafka_kwargs
 from neo4j import GraphDatabase
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
@@ -15,7 +16,7 @@ NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "rajailab123")
 
 producer = KafkaProducer(
-    bootstrap_servers=KAFKA_BOOTSTRAP,
+    **kafka_kwargs(),
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
@@ -206,7 +207,7 @@ def consume_loop():
     print(f"[graph-updater] Starting consumer on {KAFKA_BOOTSTRAP}")
     consumer = KafkaConsumer(
         "supply-chain.canonical",
-        bootstrap_servers=KAFKA_BOOTSTRAP,
+        **kafka_kwargs(),
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         group_id="graph-updater-group",
         auto_offset_reset="earliest"

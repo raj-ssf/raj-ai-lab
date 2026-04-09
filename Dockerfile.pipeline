@@ -3,4 +3,6 @@ RUN pip install --no-cache-dir kafka-python httpx "qdrant-client>=1.12,<1.13" mi
 ARG SERVICE_FILE
 COPY ${SERVICE_FILE} /app/main.py
 COPY qdrant_snapshots.py /app/qdrant_snapshots.py
+COPY kafka_config.py /app/kafka_config.py
+WORKDIR /app
 CMD ["python", "/app/main.py"]

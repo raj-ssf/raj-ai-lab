@@ -1,4 +1,6 @@
 FROM python:3.12-slim
 RUN pip install --no-cache-dir kafka-python neo4j
 COPY 12-graph-updater-code.py /app/main.py
+COPY kafka_config.py /app/kafka_config.py
+WORKDIR /app
 CMD ["python", "/app/main.py"]

@@ -33,9 +33,17 @@ spec:
             - name: RAG_URL
               value: "http://rag-service.ai-platform:8000"
             - name: KAFKA_BOOTSTRAP
-              value: "kafka.ai-data:9092"
+              value: "kafka-kafka-bootstrap.ai-data:9093"
+            - name: KAFKA_SECURITY_PROTOCOL
+              value: "SSL"
+            - name: KAFKA_CERT_DIR
+              value: "/etc/kafka-certs"
             - name: PG_URL
               value: "postgresql://ai_app:raj-lab-password@postgresql.ai-data:5432/ai_metadata"
+          volumeMounts:
+            - name: kafka-certs
+              mountPath: /etc/kafka-certs
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -43,3 +51,7 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+      volumes:
+        - name: kafka-certs
+          secret:
+            secretName: evaluation

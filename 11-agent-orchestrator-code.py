@@ -15,6 +15,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
+from kafka_config import kafka_kwargs
 from langfuse import Langfuse
 from langgraph.graph import END, StateGraph
 from neo4j import GraphDatabase
@@ -66,7 +67,7 @@ MAX_STEPS = int(os.environ.get("MAX_STEPS", "10"))
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "50000"))
 
 producer = KafkaProducer(
-    bootstrap_servers=KAFKA_BOOTSTRAP,
+    **kafka_kwargs(),
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 cache = redis.from_url(REDIS_URL)

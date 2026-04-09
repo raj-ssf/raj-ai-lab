@@ -19,7 +19,15 @@ spec:
           imagePullPolicy: Never
           env:
             - name: KAFKA_BOOTSTRAP
-              value: "kafka.ai-data:9092"
+              value: "kafka-kafka-bootstrap.ai-data:9093"
+            - name: KAFKA_SECURITY_PROTOCOL
+              value: "SSL"
+            - name: KAFKA_CERT_DIR
+              value: "/etc/kafka-certs"
+          volumeMounts:
+            - name: kafka-certs
+              mountPath: /etc/kafka-certs
+              readOnly: true
           readinessProbe:
             exec:
               command: ["python3", "-c", "import os; os.getpid()"]
@@ -37,3 +45,7 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+      volumes:
+        - name: kafka-certs
+          secret:
+            secretName: normalizer

@@ -19,7 +19,11 @@ spec:
           imagePullPolicy: Never
           env:
             - name: KAFKA_BOOTSTRAP
-              value: "kafka.ai-data:9092"
+              value: "kafka-kafka-bootstrap.ai-data:9093"
+            - name: KAFKA_SECURITY_PROTOCOL
+              value: "SSL"
+            - name: KAFKA_CERT_DIR
+              value: "/etc/kafka-certs"
             - name: OLLAMA_URL
               value: "http://host.k3d.internal:11434"
             - name: OLLAMA_MODEL
@@ -58,6 +62,10 @@ spec:
                   key: host
           ports:
             - containerPort: 8001
+          volumeMounts:
+            - name: kafka-certs
+              mountPath: /etc/kafka-certs
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /health
@@ -77,6 +85,10 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
+      volumes:
+        - name: kafka-certs
+          secret:
+            secretName: agent-orchestrator
 ---
 apiVersion: v1
 kind: Service

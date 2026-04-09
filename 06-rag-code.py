@@ -11,6 +11,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
+from kafka_config import kafka_kwargs
 from langfuse import Langfuse
 from minio import Minio
 from opentelemetry import trace as otel_trace
@@ -118,7 +119,7 @@ def route_model(question: str) -> tuple:
     return OLLAMA_MODEL_FAST, "fast"
 
 producer = KafkaProducer(
-    bootstrap_servers=KAFKA_BOOTSTRAP,
+    **kafka_kwargs(),
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
