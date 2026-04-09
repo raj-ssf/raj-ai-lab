@@ -22,13 +22,12 @@ data:
     oauth2:
       skipApprovalScreen: true
     enablePasswordDB: true
-    staticPasswordsConfig: &staticPasswordsConfig
+    staticPasswords:
       - email: raj@lab.local
         # bcrypt hash of "rajailab123"
-        hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+        hash: "$2b$10$cNmGs6PuDkt366mr0fi3FOa4LwS6fxIndQf4GmtAN.zwcXo5w/rjy"
         username: raj
         userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
-    staticPasswords: *staticPasswordsConfig
     staticClients:
       - id: oauth2-proxy
         redirectURIs:
