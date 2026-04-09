@@ -21,20 +21,42 @@ spec:
             - name: KAFKA_CLUSTERS_0_NAME
               value: "raj-ai-lab"
             - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
-              value: "kafka-kafka-bootstrap.ai-data:9092"
+              value: "kafka-kafka-bootstrap.ai-data:9093"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL
+              value: "SSL"
+            # Truststore: validates the broker's cert (signed by cluster-ca)
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION
+              value: "/etc/kafka-cluster-ca/ca.p12"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE
+              value: "PKCS12"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-cluster-ca-cert
+                  key: ca.password
+            # Keystore: kafka-ui-admin client cert (signed by clients-ca)
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION
+              value: "/etc/kafka-ui-cert/user.p12"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE
+              value: "PKCS12"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-ui-admin
+                  key: user.password
           ports:
             - containerPort: 8080
           readinessProbe:
             httpGet:
               path: /
               port: 8080
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 15
           resources:
             requests:
@@ -43,6 +65,20 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+          volumeMounts:
+            - name: kafka-ui-cert
+              mountPath: /etc/kafka-ui-cert
+              readOnly: true
+            - name: kafka-cluster-ca
+              mountPath: /etc/kafka-cluster-ca
+              readOnly: true
+      volumes:
+        - name: kafka-ui-cert
+          secret:
+            secretName: kafka-ui-admin
+        - name: kafka-cluster-ca
+          secret:
+            secretName: kafka-cluster-ca-cert
 ---
 apiVersion: v1
 kind: Service
