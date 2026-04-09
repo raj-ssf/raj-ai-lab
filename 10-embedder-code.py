@@ -36,14 +36,25 @@ producer = KafkaProducer(
 
 qdrant = QdrantClient(url=QDRANT_URL)
 
-# Ensure collection exists with correct dimensions
-try:
-    qdrant.get_collection(COLLECTION)
-except:
-    qdrant.create_collection(
-        collection_name=COLLECTION,
-        vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
-    )
+def ensure_collection(name):
+    """Create or recreate collection if dimensions mismatch"""
+    try:
+        info = qdrant.get_collection(name)
+        existing_dim = info.config.params.vectors.size
+        if existing_dim != VECTOR_DIM:
+            print(f"[embedder] Dimension mismatch on {name}: {existing_dim} vs {VECTOR_DIM} — recreating")
+            qdrant.delete_collection(name)
+            qdrant.create_collection(
+                collection_name=name,
+                vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
+            )
+    except:
+        qdrant.create_collection(
+            collection_name=name,
+            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
+        )
+
+ensure_collection(COLLECTION)
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -79,15 +90,9 @@ def consume_loop():
         total_chunks = chunk.get("total_chunks", 1)
         text = chunk.get("text", "")
 
-        # Tenant-specific collection
+        # Tenant-specific collection (auto-recreates on dimension mismatch)
         tenant_collection = f"raj-docs-{tenant_id}"
-        try:
-            qdrant.get_collection(tenant_collection)
-        except:
-            qdrant.create_collection(
-                collection_name=tenant_collection,
-                vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
-            )
+        ensure_collection(tenant_collection)
 
         # Generate embedding
         vector = embed(text)

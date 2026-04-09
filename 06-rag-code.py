@@ -134,13 +134,27 @@ for _i in range(30):
         print("[rag] Waiting for embedding service...")
         time.sleep(5)
 
-try:
-    qdrant.get_collection(COLLECTION)
-except:
-    qdrant.create_collection(
-        collection_name=COLLECTION,
-        vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
-    )
+def ensure_collection(name):
+    """Create or recreate collection if dimensions mismatch"""
+    try:
+        info = qdrant.get_collection(name)
+        existing_dim = info.config.params.vectors.size
+        if existing_dim != VECTOR_DIM:
+            print(f"[rag] Dimension mismatch on {name}: {existing_dim} vs {VECTOR_DIM} — recreating")
+            qdrant.delete_collection(name)
+            qdrant.create_collection(
+                collection_name=name,
+                vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
+            )
+            print(f"[rag] Recreated {name} with dim={VECTOR_DIM}")
+    except:
+        qdrant.create_collection(
+            collection_name=name,
+            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
+        )
+        print(f"[rag] Created {name} with dim={VECTOR_DIM}")
+
+ensure_collection(COLLECTION)
 
 DEFAULT_TENANT = os.environ.get("DEFAULT_TENANT", "default")
 
@@ -157,15 +171,9 @@ def publish(topic, message):
     producer.flush()
 
 def get_tenant_collection(tenant_id):
-    """Get or create a tenant-specific Qdrant collection"""
+    """Get or create a tenant-specific Qdrant collection, auto-recreate on dimension mismatch"""
     collection = f"raj-docs-{tenant_id}"
-    try:
-        qdrant.get_collection(collection)
-    except:
-        qdrant.create_collection(
-            collection_name=collection,
-            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
-        )
+    ensure_collection(collection)
     return collection
 
 @app.get("/health")
