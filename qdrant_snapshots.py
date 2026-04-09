@@ -101,30 +101,40 @@ def restore_collection(collection_name, dimensions):
         response.close()
         response.release_conn()
 
-        # Upload snapshot to Qdrant and restore
-        # First, write to a temp file (Qdrant restore needs multipart upload)
+        # Upload snapshot to Qdrant via multipart form upload using urllib
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=".snapshot", delete=False) as f:
             f.write(snap_data)
             temp_path = f.name
 
-        # Restore via Qdrant API
-        import subprocess
-        result = subprocess.run(
-            ["curl", "-s", "-X", "POST",
-             f"{QDRANT_URL}/collections/{collection_name}/snapshots/upload",
-             "-H", "Content-Type: multipart/form-data",
-             "-F", f"snapshot=@{temp_path}"],
-            capture_output=True, text=True, timeout=120
+        boundary = "----SnapshotBoundary"
+        filename = os.path.basename(snap_key)
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="snapshot"; filename="{filename}"\r\n'
+            f"Content-Type: application/octet-stream\r\n\r\n"
+        ).encode() + snap_data + f"\r\n--{boundary}--\r\n".encode()
+
+        req = urllib.request.Request(
+            f"{QDRANT_URL}/collections/{collection_name}/snapshots/upload",
+            data=body,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            method="POST"
         )
 
-        os.unlink(temp_path)
-
-        if result.returncode == 0 and "error" not in result.stdout.lower():
-            print(f"[snapshot] Restored {collection_name} from backup ({len(snap_data)} bytes)")
-            return True
-        else:
-            print(f"[snapshot] Restore failed: {result.stdout[:200]}")
+        try:
+            resp = urllib.request.urlopen(req, timeout=120)
+            result = json.loads(resp.read())
+            os.unlink(temp_path)
+            if result.get("status") == "ok" or result.get("result"):
+                print(f"[snapshot] Restored {collection_name} from backup ({len(snap_data)} bytes)")
+                return True
+            else:
+                print(f"[snapshot] Restore response: {result}")
+                return False
+        except urllib.error.HTTPError as e:
+            os.unlink(temp_path)
+            print(f"[snapshot] Restore HTTP error: {e.code} {e.read().decode()[:200]}")
             return False
 
     except Exception as e:
