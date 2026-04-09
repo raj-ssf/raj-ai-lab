@@ -5,14 +5,18 @@ metadata:
   name: embedding-config
   namespace: ai-platform
 data:
-  # Change this to swap embedding models — rebuild model-loader image with new model
-  # and restart the deployment. initContainer copies model to PVC on startup.
-  # Examples:
-  #   sentence-transformers/all-MiniLM-L6-v2    (384 dim, fast, 90MB)
-  #   sentence-transformers/all-mpnet-base-v2    (768 dim, better quality, 420MB)
-  #   sentence-transformers/multi-qa-MiniLM-L6-cos-v1  (384 dim, optimized for QA)
+  # Change EMBEDDING_MODEL, restart deployment — initContainer downloads from MinIO.
+  # ArgoCD syncs the ConfigMap change, pods restart, new model loaded. No image rebuild.
+  #
+  # To add a new model:
+  #   1. Upload files to MinIO: s3://models/{model-name}/
+  #   2. Update EMBEDDING_MODEL here
+  #   3. Delete PVC (kubectl delete pvc embedding-model-cache -n ai-platform)
+  #   4. ArgoCD syncs → pods restart → initContainer downloads from MinIO → cached on PVC
   EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
   MODEL_CACHE_DIR: "/app/model-cache"
+  MINIO_ENDPOINT: "minio.ai-data:9000"
+  MINIO_MODELS_BUCKET: "models"
   TRANSFORMERS_OFFLINE: "1"
   HF_HUB_OFFLINE: "1"
 ---
@@ -33,12 +37,59 @@ spec:
     spec:
       initContainers:
         - name: model-loader
-          image: raj/model-loader:latest
-          imagePullPolicy: Never
-          command: ["sh", "-c", "if [ ! -f /cache/sentence-transformers/all-MiniLM-L6-v2/config.json ]; then echo 'Loading model to PVC...' && mkdir -p /cache/sentence-transformers/all-MiniLM-L6-v2 && tar xzf /model.tar.gz -C /cache/sentence-transformers/all-MiniLM-L6-v2 && echo 'Done'; else echo 'Model already cached'; fi"]
+          image: python:3.12-slim
+          command:
+            - python3
+            - -c
+            - |
+              import os, sys
+              model = os.environ.get("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+              cache_dir = os.environ.get("MODEL_CACHE_DIR", "/app/model-cache")
+              endpoint = os.environ.get("MINIO_ENDPOINT", "minio.ai-data:9000")
+              bucket = os.environ.get("MINIO_MODELS_BUCKET", "models")
+              access_key = os.environ.get("MINIO_ACCESS_KEY", "rajailab")
+              secret_key = os.environ.get("MINIO_SECRET_KEY", "rajailab123")
+
+              short_name = model.split("/")[-1] if "/" in model else model
+              local_path = os.path.join(cache_dir, "sentence-transformers", short_name)
+              marker = os.path.join(local_path, "config.json")
+
+              if os.path.exists(marker):
+                  print(f"Model already cached at {local_path}")
+                  sys.exit(0)
+
+              print(f"Downloading {model} from s3://{bucket}/{model}/ ...")
+              import subprocess
+              subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "minio"], check=True)
+              from minio import Minio
+              s3 = Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=False)
+
+              os.makedirs(local_path, exist_ok=True)
+              count = 0
+              for obj in s3.list_objects(bucket, prefix=f"{model}/", recursive=True):
+                  rel = obj.object_name[len(f"{model}/"):]
+                  dest = os.path.join(local_path, rel)
+                  os.makedirs(os.path.dirname(dest), exist_ok=True)
+                  s3.fget_object(bucket, obj.object_name, dest)
+                  count += 1
+              print(f"Downloaded {count} files to {local_path}")
+          envFrom:
+            - configMapRef:
+                name: embedding-config
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: access_key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secret_key
           volumeMounts:
             - name: model-cache
-              mountPath: /cache
+              mountPath: /app/model-cache
       containers:
         - name: embedding
           image: raj/embedding-service:latest
