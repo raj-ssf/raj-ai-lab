@@ -6,9 +6,18 @@ metadata:
   name: raj-ai-lab-monitoring-ingress
   namespace: monitoring
   annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.raj-ai-lab.localhost:8443/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - grafana.raj-ai-lab.localhost
+        - prometheus.raj-ai-lab.localhost
+      secretName: raj-ai-lab-monitoring-tls
   rules:
     - host: grafana.raj-ai-lab.localhost
       http:
@@ -38,10 +47,17 @@ metadata:
   name: raj-ai-lab-argocd-ingress
   namespace: argocd
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.raj-ai-lab.localhost:8443/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - argocd.raj-ai-lab.localhost
+      secretName: raj-ai-lab-argocd-tls
   rules:
     - host: argocd.raj-ai-lab.localhost
       http:

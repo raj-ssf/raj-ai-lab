@@ -1,30 +1,35 @@
 ---
-# Install nginx ingress controller
+# Install nginx ingress controller namespace
 apiVersion: v1
 kind: Namespace
 metadata:
   name: ingress-nginx
 ---
-# Ingress rules — each UI gets its own subdomain under *.localhost
-# All subdomains resolve to 127.0.0.1 on macOS automatically.
-# Access via http://<name>.localhost:8080
-
-# --- ai-platform UIs ---
+# UI ingresses — gated behind oauth2-proxy
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: raj-ai-lab-ingress
+  name: raj-ai-lab-ui-ingress
   namespace: ai-platform
   annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
-    # Rate limiting: 10 requests/sec per IP, burst up to 20
     nginx.ingress.kubernetes.io/limit-rps: "10"
     nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
     nginx.ingress.kubernetes.io/limit-connections: "5"
+    # Gate behind oauth2-proxy
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.raj-ai-lab.localhost:8443/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email, Authorization"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - raj-ai-lab.localhost
+        - langfuse.raj-ai-lab.localhost
+      secretName: raj-ai-lab-ui-tls
   rules:
     - host: raj-ai-lab.localhost
       http:
@@ -36,6 +41,38 @@ spec:
                 name: rag-ui
                 port:
                   number: 7860
+    - host: langfuse.raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: langfuse
+                port:
+                  number: 3001
+---
+# API ingresses — NO auth (services need direct HTTP access)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: raj-ai-lab-api-ingress
+  namespace: ai-platform
+  annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.raj-ai-lab.localhost
+        - agent.raj-ai-lab.localhost
+      secretName: raj-ai-lab-api-tls
+  rules:
     - host: api.raj-ai-lab.localhost
       http:
         paths:
@@ -56,13 +93,3 @@ spec:
                 name: agent-orchestrator
                 port:
                   number: 8001
-    - host: langfuse.raj-ai-lab.localhost
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: langfuse
-                port:
-                  number: 3001

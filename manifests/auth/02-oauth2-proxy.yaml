@@ -1,0 +1,159 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oauth2-proxy-secrets
+  namespace: auth
+type: Opaque
+stringData:
+  client-secret: raj-ai-lab-oauth2-proxy-secret
+  # 32 raw bytes (oauth2-proxy v7 reads literal, not base64-decoded)
+  cookie-secret: "YRkSFTY2rRgilQRA9WdGEyotkLPlTJ8Q"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-config
+  namespace: auth
+data:
+  oauth2-proxy.cfg: |
+    provider = "oidc"
+    # Discovery via in-cluster Dex Service (skip issuer verification because
+    # the issuer URL in the discovery doc differs from this URL).
+    oidc_issuer_url = "http://dex.auth.svc.cluster.local:5556"
+    insecure_oidc_skip_issuer_verification = true
+    skip_oidc_discovery = false
+    client_id = "oauth2-proxy"
+    redirect_url = "https://auth.raj-ai-lab.localhost:8443/oauth2/callback"
+    upstreams = ["file:///dev/null"]
+
+    cookie_domains = [".raj-ai-lab.localhost"]
+    whitelist_domains = [".raj-ai-lab.localhost"]
+    cookie_secure = true
+    cookie_samesite = "lax"
+    cookie_httponly = true
+    cookie_expire = "12h"
+
+    email_domains = ["*"]
+    pass_access_token = true
+    pass_authorization_header = true
+    set_authorization_header = true
+    set_xauthrequest = true
+
+    skip_provider_button = true
+    reverse_proxy = true
+
+    # Override URLs so the browser hits the public Dex via the ingress
+    login_url = "https://dex.raj-ai-lab.localhost:8443/auth"
+    redeem_url = "http://dex.auth.svc.cluster.local:5556/token"
+    oidc_jwks_url = "http://dex.auth.svc.cluster.local:5556/keys"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      hostAliases:
+        # Resolve dex.raj-ai-lab.localhost to nginx-ingress in-cluster IP
+        # so the OIDC discovery URL works inside the pod (routes through
+        # the ingress which has the trusted TLS cert).
+        - ip: "10.43.107.129"
+          hostnames:
+            - dex.raj-ai-lab.localhost
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+          args:
+            - --config=/etc/oauth2-proxy/oauth2-proxy.cfg
+            - --http-address=0.0.0.0:4180
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-secrets
+                  key: client-secret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-secrets
+                  key: cookie-secret
+          ports:
+            - containerPort: 4180
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/oauth2-proxy
+            - name: ca-cert
+              mountPath: /etc/ssl/certs/raj-ai-lab-root-ca.crt
+              subPath: tls.crt
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 4180
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: oauth2-proxy-config
+        - name: ca-cert
+          secret:
+            secretName: raj-ai-lab-root-ca-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: auth
+  labels:
+    app: oauth2-proxy
+spec:
+  selector:
+    app: oauth2-proxy
+  ports:
+    - name: http
+      port: 4180
+      targetPort: 4180
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oauth2-proxy-ingress
+  namespace: auth
+  annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - auth.raj-ai-lab.localhost
+      secretName: raj-ai-lab-auth-tls
+  rules:
+    - host: auth.raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
