@@ -83,6 +83,8 @@ kind: Service
 metadata:
   name: agent-orchestrator
   namespace: ai-platform
+  labels:
+    app: agent-orchestrator
 spec:
   selector:
     app: agent-orchestrator
