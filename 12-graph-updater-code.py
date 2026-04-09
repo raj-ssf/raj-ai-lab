@@ -7,8 +7,9 @@ import os
 from datetime import datetime, timezone
 
 from kafka import KafkaConsumer, KafkaProducer
-from kafka_config import kafka_kwargs
 from neo4j import GraphDatabase
+
+from kafka_config import kafka_kwargs
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j.ai-data:7687")

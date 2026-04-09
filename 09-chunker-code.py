@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timezone
 
 from kafka import KafkaConsumer, KafkaProducer
+
 from kafka_config import kafka_kwargs
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")

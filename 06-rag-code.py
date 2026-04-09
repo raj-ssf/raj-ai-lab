@@ -11,7 +11,6 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
-from kafka_config import kafka_kwargs
 from langfuse import Langfuse
 from minio import Minio
 from opentelemetry import trace as otel_trace
@@ -23,6 +22,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
+
+from kafka_config import kafka_kwargs
 
 # --- OpenTelemetry setup ---
 resource = Resource.create({"service.name": "rag-service", "service.version": "1.0.0"})

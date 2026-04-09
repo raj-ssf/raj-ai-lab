@@ -8,9 +8,10 @@ from datetime import datetime, timezone
 
 import httpx
 from kafka import KafkaConsumer, KafkaProducer
-from kafka_config import kafka_kwargs
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
+
+from kafka_config import kafka_kwargs
 
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
 EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://embedding-service.ai-platform:8080")

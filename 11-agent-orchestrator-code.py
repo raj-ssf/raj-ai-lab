@@ -15,7 +15,6 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from kafka import KafkaProducer
-from kafka_config import kafka_kwargs
 from langfuse import Langfuse
 from langgraph.graph import END, StateGraph
 from neo4j import GraphDatabase
@@ -26,6 +25,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
+
+from kafka_config import kafka_kwargs
 
 # --- OpenTelemetry setup ---
 resource = Resource.create({"service.name": "agent-orchestrator", "service.version": "1.0.0"})

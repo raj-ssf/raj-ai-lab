@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 
 import httpx
+
 from kafka_config import kafka_kwargs
 
 RAG_URL = os.environ.get("RAG_URL", "http://rag-service.ai-platform:8000")
