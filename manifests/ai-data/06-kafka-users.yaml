@@ -1,12 +1,11 @@
 ---
-# KafkaUser CRs — Strimzi User Operator generates a Secret for each
-# containing user.crt + user.key + ca.crt. Authentication via mTLS.
+# KafkaUser CRs with mTLS auth + per-user ACLs (Stage 3)
+# Default deny — explicit allow only on the topics each service needs.
 #
-# Secrets are auto-mirrored to ai-platform via emberstack/reflector
-# (annotations on the generated secret tell reflector to mirror).
-#
-# Stage 2: TLS auth only. Stage 3 will add per-user ACLs.
+# Strimzi User Operator generates Secrets with cert/key/CA, mirrored
+# to ai-platform via emberstack/reflector annotations.
 
+# rag-service: produces document.uploaded + query.log
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -17,6 +16,19 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: document.uploaded
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: topic
+          name: query.log
+          patternType: literal
+        operations: [Write, Describe]
   template:
     secret:
       metadata:
@@ -26,6 +38,7 @@ spec:
           reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
           reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "ai-platform"
 ---
+# agent-orchestrator: produces agent.trace + agent.action + agent.cost
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -36,6 +49,24 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: agent.trace
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: topic
+          name: agent.action
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: topic
+          name: agent.cost
+          patternType: literal
+        operations: [Write, Describe]
   template:
     secret:
       metadata:
@@ -45,6 +76,7 @@ spec:
           reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
           reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "ai-platform"
 ---
+# normalizer: consumes document.uploaded → produces document.canonical (+dlt)
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -55,6 +87,29 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: document.uploaded
+          patternType: literal
+        operations: [Read, Describe]
+      - resource:
+          type: topic
+          name: document.canonical
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: topic
+          name: document.canonical-dlt
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: group
+          name: normalizer-group
+          patternType: literal
+        operations: [Read, Describe]
   template:
     secret:
       metadata:
@@ -64,6 +119,7 @@ spec:
           reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
           reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "ai-platform"
 ---
+# chunker: consumes document.canonical → produces document.chunked
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -74,6 +130,24 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: document.canonical
+          patternType: literal
+        operations: [Read, Describe]
+      - resource:
+          type: topic
+          name: document.chunked
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: group
+          name: chunker-group
+          patternType: literal
+        operations: [Read, Describe]
   template:
     secret:
       metadata:
@@ -83,6 +157,7 @@ spec:
           reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
           reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "ai-platform"
 ---
+# embedder: consumes document.chunked → produces document.embedded + document.indexed
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -93,6 +168,29 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: document.chunked
+          patternType: literal
+        operations: [Read, Describe]
+      - resource:
+          type: topic
+          name: document.embedded
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: topic
+          name: document.indexed
+          patternType: literal
+        operations: [Write, Describe]
+      - resource:
+          type: group
+          name: embedder-group
+          patternType: literal
+        operations: [Read, Describe]
   template:
     secret:
       metadata:
@@ -102,6 +200,7 @@ spec:
           reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
           reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "ai-platform"
 ---
+# graph-updater: consumes supply-chain.canonical
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -112,6 +211,19 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: supply-chain.canonical
+          patternType: literal
+        operations: [Read, Describe]
+      - resource:
+          type: group
+          name: graph-updater-group
+          patternType: literal
+        operations: [Read, Describe]
   template:
     secret:
       metadata:
@@ -121,6 +233,7 @@ spec:
           reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
           reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "ai-platform"
 ---
+# evaluation: produces query.log
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -131,6 +244,14 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: query.log
+          patternType: literal
+        operations: [Write, Describe]
   template:
     secret:
       metadata:
@@ -140,6 +261,7 @@ spec:
           reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
           reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "ai-platform"
 ---
+# kafka-ui-admin: read-only on ALL topics + groups for inspection
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -150,3 +272,19 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: "*"
+          patternType: literal
+        operations: [Read, Describe, DescribeConfigs]
+      - resource:
+          type: group
+          name: "*"
+          patternType: literal
+        operations: [Read, Describe]
+      - resource:
+          type: cluster
+        operations: [Describe, DescribeConfigs]

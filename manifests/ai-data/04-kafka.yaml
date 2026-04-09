@@ -53,6 +53,10 @@ spec:
         tls: true
         authentication:
           type: tls
+    authorization:
+      type: simple
+      superUsers:
+        - CN=cluster-operator
     config:
       offsets.topic.replication.factor: 1
       transaction.state.log.replication.factor: 1
