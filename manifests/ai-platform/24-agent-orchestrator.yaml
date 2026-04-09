@@ -66,6 +66,9 @@ spec:
             - name: kafka-certs
               mountPath: /etc/kafka-certs
               readOnly: true
+            - name: kafka-cluster-ca
+              mountPath: /etc/kafka-cluster-ca
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /health
@@ -89,6 +92,9 @@ spec:
         - name: kafka-certs
           secret:
             secretName: agent-orchestrator
+        - name: kafka-cluster-ca
+          secret:
+            secretName: kafka-cluster-ca-cert
 ---
 apiVersion: v1
 kind: Service

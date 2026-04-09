@@ -44,6 +44,9 @@ spec:
             - name: kafka-certs
               mountPath: /etc/kafka-certs
               readOnly: true
+            - name: kafka-cluster-ca
+              mountPath: /etc/kafka-cluster-ca
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -55,3 +58,6 @@ spec:
         - name: kafka-certs
           secret:
             secretName: evaluation
+        - name: kafka-cluster-ca
+          secret:
+            secretName: kafka-cluster-ca-cert

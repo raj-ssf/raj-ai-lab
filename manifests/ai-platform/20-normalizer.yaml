@@ -28,6 +28,9 @@ spec:
             - name: kafka-certs
               mountPath: /etc/kafka-certs
               readOnly: true
+            - name: kafka-cluster-ca
+              mountPath: /etc/kafka-cluster-ca
+              readOnly: true
           readinessProbe:
             exec:
               command: ["python3", "-c", "import os; os.getpid()"]
@@ -49,3 +52,6 @@ spec:
         - name: kafka-certs
           secret:
             secretName: normalizer
+        - name: kafka-cluster-ca
+          secret:
+            secretName: kafka-cluster-ca-cert
