@@ -1,3 +1,21 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: embedding-config
+  namespace: ai-platform
+data:
+  # Change this to swap embedding models — rebuild model-loader image with new model
+  # and restart the deployment. initContainer copies model to PVC on startup.
+  # Examples:
+  #   sentence-transformers/all-MiniLM-L6-v2    (384 dim, fast, 90MB)
+  #   sentence-transformers/all-mpnet-base-v2    (768 dim, better quality, 420MB)
+  #   sentence-transformers/multi-qa-MiniLM-L6-cos-v1  (384 dim, optimized for QA)
+  EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
+  MODEL_CACHE_DIR: "/app/model-cache"
+  TRANSFORMERS_OFFLINE: "1"
+  HF_HUB_OFFLINE: "1"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,17 +31,21 @@ spec:
       labels:
         app: embedding-service
     spec:
+      initContainers:
+        - name: model-loader
+          image: raj/model-loader:latest
+          imagePullPolicy: Never
+          command: ["sh", "-c", "if [ ! -f /cache/sentence-transformers/all-MiniLM-L6-v2/config.json ]; then echo 'Loading model to PVC...' && mkdir -p /cache/sentence-transformers/all-MiniLM-L6-v2 && tar xzf /model.tar.gz -C /cache/sentence-transformers/all-MiniLM-L6-v2 && echo 'Done'; else echo 'Model already cached'; fi"]
+          volumeMounts:
+            - name: model-cache
+              mountPath: /cache
       containers:
         - name: embedding
           image: raj/embedding-service:latest
           imagePullPolicy: Never
-          env:
-            - name: TRANSFORMERS_OFFLINE
-              value: "1"
-            - name: HF_HUB_OFFLINE
-              value: "1"
-            - name: SENTENCE_TRANSFORMERS_HOME
-              value: "/root/.cache/torch/sentence_transformers"
+          envFrom:
+            - configMapRef:
+                name: embedding-config
           ports:
             - containerPort: 8080
           resources:
@@ -37,14 +59,32 @@ spec:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 60
+            initialDelaySeconds: 120
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 120
+            initialDelaySeconds: 180
             periodSeconds: 30
+          volumeMounts:
+            - name: model-cache
+              mountPath: /app/model-cache
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: embedding-model-cache
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: embedding-model-cache
+  namespace: ai-platform
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
 ---
 apiVersion: v1
 kind: Service
