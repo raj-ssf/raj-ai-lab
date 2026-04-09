@@ -275,7 +275,7 @@ spec:
   authorization:
     type: simple
     acls:
-      # Strimzi's "literal *" maps to Kafka's wildcard ALL match
+      # "literal *" is Kafka's wildcard for "all resources of this type"
       - resource:
           type: topic
           name: "*"
@@ -289,14 +289,3 @@ spec:
       - resource:
           type: cluster
         operations: [Describe, DescribeConfigs]
-      # Also grant on ALL resources via prefix-empty as belt-and-braces
-      - resource:
-          type: topic
-          name: ""
-          patternType: prefix
-        operations: [Read, Describe, DescribeConfigs]
-      - resource:
-          type: group
-          name: ""
-          patternType: prefix
-        operations: [Read, Describe]
