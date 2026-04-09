@@ -13,7 +13,7 @@ data:
   #   2. Update EMBEDDING_MODEL here
   #   3. Delete PVC (kubectl delete pvc embedding-model-cache -n ai-platform)
   #   4. ArgoCD syncs → pods restart → initContainer downloads from MinIO → cached on PVC
-  EMBEDDING_MODEL: "sentence-transformers/all-mpnet-base-v2"
+  EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
   MODEL_CACHE_DIR: "/app/model-cache"
   MINIO_ENDPOINT: "minio.ai-data:9000"
   MINIO_MODELS_BUCKET: "models"
@@ -34,6 +34,8 @@ spec:
     metadata:
       labels:
         app: embedding-service
+      annotations:
+        configmap.reloader.stakater.com/reload: "embedding-config"
     spec:
       initContainers:
         - name: model-loader
