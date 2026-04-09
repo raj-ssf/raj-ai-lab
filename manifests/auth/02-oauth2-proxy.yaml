@@ -18,11 +18,21 @@ metadata:
 data:
   oauth2-proxy.cfg: |
     provider = "oidc"
-    # Discovery via in-cluster Dex Service (skip issuer verification because
-    # the issuer URL in the discovery doc differs from this URL).
+    # All Dex traffic goes through the in-cluster Service (HTTP, no TLS).
+    # The discovery doc says issuer = https://dex.raj-ai-lab.localhost:8443,
+    # so we skip issuer verification and override the URLs explicitly.
     oidc_issuer_url = "http://dex.auth.svc.cluster.local:5556"
     insecure_oidc_skip_issuer_verification = true
-    skip_oidc_discovery = false
+    skip_oidc_discovery = true
+
+    # Browser-facing URL for the login redirect (k3d port 8443 → cluster 443)
+    login_url = "https://dex.raj-ai-lab.localhost:8443/auth"
+
+    # Backend URLs (server-side, oauth2-proxy → Dex via ClusterIP service)
+    redeem_url = "http://dex.auth.svc.cluster.local:5556/token"
+    oidc_jwks_url = "http://dex.auth.svc.cluster.local:5556/keys"
+    profile_url = "http://dex.auth.svc.cluster.local:5556/userinfo"
+
     client_id = "oauth2-proxy"
     redirect_url = "https://auth.raj-ai-lab.localhost:8443/oauth2/callback"
     upstreams = ["file:///dev/null"]
@@ -42,11 +52,6 @@ data:
 
     skip_provider_button = true
     reverse_proxy = true
-
-    # Override URLs so the browser hits the public Dex via the ingress
-    login_url = "https://dex.raj-ai-lab.localhost:8443/auth"
-    redeem_url = "http://dex.auth.svc.cluster.local:5556/token"
-    oidc_jwks_url = "http://dex.auth.svc.cluster.local:5556/keys"
 ---
 apiVersion: apps/v1
 kind: Deployment
