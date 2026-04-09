@@ -51,8 +51,18 @@ spec:
               secret_key = os.environ.get("MINIO_SECRET_KEY", "rajailab123")
 
               short_name = model.split("/")[-1] if "/" in model else model
-              local_path = os.path.join(cache_dir, "sentence-transformers", short_name)
+              models_dir = os.path.join(cache_dir, "sentence-transformers")
+              local_path = os.path.join(models_dir, short_name)
               marker = os.path.join(local_path, "config.json")
+
+              # Clean any other cached models (model swap detected)
+              if os.path.exists(models_dir):
+                  import shutil
+                  for d in os.listdir(models_dir):
+                      if d != short_name:
+                          stale = os.path.join(models_dir, d)
+                          print(f"Removing stale model: {d}")
+                          shutil.rmtree(stale, ignore_errors=True)
 
               if os.path.exists(marker):
                   print(f"Model already cached at {local_path}")
