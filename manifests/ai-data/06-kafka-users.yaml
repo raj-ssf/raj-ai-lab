@@ -277,13 +277,13 @@ spec:
     acls:
       - resource:
           type: topic
-          name: "*"
-          patternType: literal
+          name: ""
+          patternType: prefix
         operations: [Read, Describe, DescribeConfigs]
       - resource:
           type: group
-          name: "*"
-          patternType: literal
+          name: ""
+          patternType: prefix
         operations: [Read, Describe]
       - resource:
           type: cluster
