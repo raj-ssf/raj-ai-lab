@@ -3,6 +3,7 @@ Embedder Service — consumes document.chunked, generates vectors, stores in Qdr
 """
 import json
 import os
+import time as _time
 from datetime import datetime, timezone
 
 import httpx
@@ -15,6 +16,19 @@ EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://embedding-service.ai-pla
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://qdrant.ai-data:6333")
 COLLECTION = os.environ.get("QDRANT_COLLECTION", "raj-docs")
 
+# Discover embedding dimensions from embedding service
+
+VECTOR_DIM = 384
+for _i in range(30):
+    try:
+        _r = httpx.get(f"{EMBEDDING_URL}/health", timeout=5)
+        VECTOR_DIM = _r.json().get("dimensions", 384)
+        print(f"[embedder] Discovered vector dimensions: {VECTOR_DIM}")
+        break
+    except:
+        print("[embedder] Waiting for embedding service...")
+        _time.sleep(5)
+
 producer = KafkaProducer(
     bootstrap_servers=KAFKA_BOOTSTRAP,
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
@@ -22,13 +36,13 @@ producer = KafkaProducer(
 
 qdrant = QdrantClient(url=QDRANT_URL)
 
-# Ensure collection exists
+# Ensure collection exists with correct dimensions
 try:
     qdrant.get_collection(COLLECTION)
 except:
     qdrant.create_collection(
         collection_name=COLLECTION,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
     )
 
 def now():
@@ -72,7 +86,7 @@ def consume_loop():
         except:
             qdrant.create_collection(
                 collection_name=tenant_collection,
-                vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
             )
 
         # Generate embedding

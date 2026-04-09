@@ -122,12 +122,24 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
+# Discover embedding dimensions from embedding service
+VECTOR_DIM = 384
+for _i in range(30):
+    try:
+        _r = httpx.get(f"{EMBEDDING_URL}/health", timeout=5)
+        VECTOR_DIM = _r.json().get("dimensions", 384)
+        print(f"[rag] Discovered vector dimensions: {VECTOR_DIM}")
+        break
+    except:
+        print("[rag] Waiting for embedding service...")
+        time.sleep(5)
+
 try:
     qdrant.get_collection(COLLECTION)
 except:
     qdrant.create_collection(
         collection_name=COLLECTION,
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
     )
 
 DEFAULT_TENANT = os.environ.get("DEFAULT_TENANT", "default")
@@ -152,7 +164,7 @@ def get_tenant_collection(tenant_id):
     except:
         qdrant.create_collection(
             collection_name=collection,
-            vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE)
         )
     return collection
 
