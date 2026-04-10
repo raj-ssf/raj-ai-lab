@@ -28,7 +28,10 @@ spec:
               name: http
           env:
             - name: VAULT_DEV_ROOT_TOKEN_ID
-              value: "raj-lab-root-token"
+              valueFrom:
+                secretKeyRef:
+                  name: vault-bootstrap-secrets
+                  key: VAULT_TOKEN
             - name: VAULT_DEV_LISTEN_ADDRESS
               value: "0.0.0.0:8200"
           readinessProbe:

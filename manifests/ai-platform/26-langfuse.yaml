@@ -18,13 +18,22 @@ spec:
           image: langfuse/langfuse:2
           env:
             - name: DATABASE_URL
-              value: "postgresql://ai_app:raj-lab-password@postgresql.ai-data:5432/ai_metadata"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-app-credentials
+                  key: database_url
             - name: NEXTAUTH_SECRET
-              value: "raj-lab-secret-key"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-app-credentials
+                  key: nextauth_secret
             - name: NEXTAUTH_URL
               value: "http://localhost:3001"
             - name: SALT
-              value: "raj-lab-salt"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-app-credentials
+                  key: salt
             - name: HOSTNAME
               value: "0.0.0.0"
             # Auto-bootstrap org, project, user, and API keys on first startup
@@ -51,7 +60,10 @@ spec:
             - name: LANGFUSE_INIT_USER_NAME
               value: "Raj"
             - name: LANGFUSE_INIT_USER_PASSWORD
-              value: "rajailab"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-app-credentials
+                  key: user_password
           ports:
             - containerPort: 3000
           readinessProbe:

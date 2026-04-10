@@ -1,14 +1,5 @@
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: oauth2-proxy-secrets
-  namespace: auth
-type: Opaque
-stringData:
-  client-secret: raj-ai-lab-oauth2-proxy-secret
-  # 32 raw bytes (oauth2-proxy v7 reads literal, not base64-decoded)
-  cookie-secret: "YRkSFTY2rRgilQRA9WdGEyotkLPlTJ8Q"
+# oauth2-proxy-secrets is created by ESO from Vault (see vault/08-external-secrets-auth.yaml)
 ---
 apiVersion: v1
 kind: ConfigMap

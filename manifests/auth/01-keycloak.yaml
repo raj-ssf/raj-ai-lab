@@ -36,7 +36,7 @@ data:
           "credentials": [
             {
               "type": "password",
-              "value": "rajailab",
+              "value": "__KEYCLOAK_USER_PASSWORD__",
               "temporary": false
             }
           ]
@@ -47,7 +47,7 @@ data:
           "clientId": "oauth2-proxy",
           "enabled": true,
           "clientAuthenticatorType": "client-secret",
-          "secret": "raj-ai-lab-oauth2-proxy-secret",
+          "secret": "__OAUTH2_PROXY_CLIENT_SECRET__",
           "redirectUris": [
             "https://auth.raj-ai-lab.localhost:8443/oauth2/callback"
           ],
@@ -64,7 +64,7 @@ data:
           "clientId": "minio",
           "enabled": true,
           "clientAuthenticatorType": "client-secret",
-          "secret": "raj-ai-lab-minio-secret",
+          "secret": "__MINIO_CLIENT_SECRET__",
           "redirectUris": [
             "https://minio.raj-ai-lab.localhost:8443/oauth_callback"
           ],
@@ -95,6 +95,44 @@ spec:
       labels:
         app: keycloak
     spec:
+      initContainers:
+        - name: realm-template
+          image: python:3.12-slim
+          command:
+            - python3
+            - -c
+            - |
+              import os
+              with open("/template/raj-ai-lab.json") as f:
+                  content = f.read()
+              content = content.replace("__KEYCLOAK_USER_PASSWORD__", os.environ["KEYCLOAK_USER_PASSWORD"])
+              content = content.replace("__OAUTH2_PROXY_CLIENT_SECRET__", os.environ["OAUTH2_PROXY_CLIENT_SECRET"])
+              content = content.replace("__MINIO_CLIENT_SECRET__", os.environ["MINIO_CLIENT_SECRET"])
+              with open("/output/raj-ai-lab.json", "w") as f:
+                  f.write(content)
+              print("Realm JSON templated with secrets")
+          env:
+            - name: KEYCLOAK_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-credentials
+                  key: user_password
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: oauth2_proxy_secret
+            - name: MINIO_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: minio_secret
+          volumeMounts:
+            - name: realm-template
+              mountPath: /template
+              readOnly: true
+            - name: realm-import
+              mountPath: /output
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:26.2
@@ -107,7 +145,10 @@ spec:
             - name: KEYCLOAK_ADMIN
               value: admin
             - name: KEYCLOAK_ADMIN_PASSWORD
-              value: rajailab
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-credentials
+                  key: admin_password
             - name: KC_PROXY_HEADERS
               value: xforwarded
             - name: KC_HTTP_ENABLED
@@ -122,7 +163,6 @@ spec:
           volumeMounts:
             - name: realm-import
               mountPath: /opt/keycloak/data/import
-              readOnly: true
           resources:
             requests:
               cpu: 200m
@@ -143,9 +183,11 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 30
       volumes:
-        - name: realm-import
+        - name: realm-template
           configMap:
             name: keycloak-realm
+        - name: realm-import
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

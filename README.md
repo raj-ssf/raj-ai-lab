@@ -141,10 +141,11 @@ All UIs are accessible via subdomain-based ingress on port 8080. No port-forward
 | **RAG UI** | http://raj-ai-lab.localhost:8080 | — |
 | **Qdrant** | http://qdrant.raj-ai-lab.localhost:8080 | — |
 | **Kafka UI** | http://kafka.raj-ai-lab.localhost:8080 | — |
-| **Neo4j Browser** | http://neo4j.raj-ai-lab.localhost:8080 | neo4j / rajailab |
-| **MinIO Console** | http://minio.raj-ai-lab.localhost:8080 | rajailab / rajailab |
-| **Langfuse** | http://langfuse.raj-ai-lab.localhost:8080 | raj@lab.local / rajailab |
-| **Grafana** | http://grafana.raj-ai-lab.localhost:8080 | admin / raj-ai-lab |
+| **Neo4j Browser** | http://neo4j.raj-ai-lab.localhost:8080 | neo4j / `vault kv get secret/neo4j` |
+| **MinIO Console** | http://minio.raj-ai-lab.localhost:8080 | `vault kv get secret/minio` |
+| **Langfuse** | http://langfuse.raj-ai-lab.localhost:8080 | raj@lab.local / `vault kv get secret/langfuse-app` |
+| **Grafana** | http://grafana.raj-ai-lab.localhost:8080 | admin / `vault kv get secret/grafana` |
+| **Keycloak** | http://keycloak.raj-ai-lab.localhost:8080 | admin / `vault kv get secret/keycloak` |
 | **Prometheus** | http://prometheus.raj-ai-lab.localhost:8080 | — |
 | **ArgoCD** | http://argocd.raj-ai-lab.localhost:8080 | admin / `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" \| base64 -d` |
 | **RAG API** | http://api.raj-ai-lab.localhost:8080 | — (`/health`, `/query`, `/ingest`) |

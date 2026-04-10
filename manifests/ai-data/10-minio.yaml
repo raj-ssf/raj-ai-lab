@@ -55,7 +55,10 @@ spec:
             - name: MINIO_IDENTITY_OPENID_CLIENT_ID
               value: "minio"
             - name: MINIO_IDENTITY_OPENID_CLIENT_SECRET
-              value: "raj-ai-lab-minio-secret"
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: oidc_client_secret
             - name: MINIO_IDENTITY_OPENID_DISPLAY_NAME
               value: "Sign in with Keycloak"
             - name: MINIO_IDENTITY_OPENID_REDIRECT_URI

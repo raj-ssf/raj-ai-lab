@@ -75,8 +75,8 @@ except:
 
 # MinIO (S3-compatible storage)
 MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "minio.ai-data:9000")
-MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY", "rajailab")
-MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "rajailab")
+MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
+MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "raj-documents")
 
 try:

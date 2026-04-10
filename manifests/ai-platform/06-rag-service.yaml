@@ -66,6 +66,16 @@ spec:
                 secretKeyRef:
                   name: qdrant-credentials
                   key: api_key
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: access_key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secret_key
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:

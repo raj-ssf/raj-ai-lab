@@ -13,7 +13,7 @@ from kafka_config import kafka_kwargs
 
 RAG_URL = os.environ.get("RAG_URL", "http://rag-service.ai-platform:8000")
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
-PG_URL = os.environ.get("PG_URL", "postgresql://ai_app:raj-lab-password@postgresql.ai-data:5432/ai_metadata")
+PG_URL = os.environ["PG_URL"]
 
 # Benchmark dataset — known questions with expected keywords in answers
 BENCHMARKS = [

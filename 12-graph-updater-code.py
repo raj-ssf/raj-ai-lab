@@ -14,7 +14,7 @@ from kafka_config import kafka_kwargs
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "kafka.ai-data:9092")
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j.ai-data:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "rajailab")
+NEO4J_PASSWORD = os.environ["NEO4J_PASSWORD"]
 
 producer = KafkaProducer(
     **kafka_kwargs(),

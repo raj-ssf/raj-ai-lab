@@ -39,7 +39,10 @@ spec:
             - name: KAFKA_CERT_DIR
               value: "/etc/kafka-certs"
             - name: PG_URL
-              value: "postgresql://ai_app:raj-lab-password@postgresql.ai-data:5432/ai_metadata"
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-connection
+                  key: connection_string
           volumeMounts:
             - name: kafka-certs
               mountPath: /etc/kafka-certs

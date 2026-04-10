@@ -12,6 +12,9 @@ spec:
       containers:
         - name: vault-init
           image: python:3.12-slim
+          envFrom:
+            - secretRef:
+                name: vault-bootstrap-secrets
           command:
             - /bin/bash
             - -c
@@ -23,7 +26,7 @@ spec:
               import os
 
               VAULT_ADDR = "http://vault.vault:8200"
-              VAULT_TOKEN = "raj-lab-root-token"
+              VAULT_TOKEN = os.environ["VAULT_TOKEN"]
 
               # Wait for Vault to be ready
               client = hvac.Client(url=VAULT_ADDR, token=VAULT_TOKEN)
@@ -53,23 +56,28 @@ spec:
                   else:
                       raise
 
-              # Write secrets
+              # All values come from vault-bootstrap-secrets (never hardcoded in git)
+              pg_pw = os.environ["PG_PASSWORD"]
+              neo4j_pw = os.environ["NEO4J_PASSWORD"]
+
               secrets = {
                   "postgresql": {
                       "username": "ai_app",
-                      "password": "raj-lab-password",
+                      "password": pg_pw,
                       "database": "ai_metadata",
                       "host": "postgresql.ai-data",
                       "port": "5432",
+                      "connection_string": f"postgresql://ai_app:{pg_pw}@postgresql.ai-data:5432/ai_metadata",
                   },
                   "neo4j": {
                       "username": "neo4j",
-                      "password": "rajailab",
+                      "password": neo4j_pw,
+                      "auth": f"neo4j/{neo4j_pw}",
                       "uri": "bolt://graphdb.ai-data:7687",
                   },
                   "minio": {
-                      "access_key": "rajailab",
-                      "secret_key": "rajailab",
+                      "access_key": os.environ["MINIO_ACCESS_KEY"],
+                      "secret_key": os.environ["MINIO_SECRET_KEY"],
                       "endpoint": "minio.ai-data:9000",
                   },
                   "langfuse": {
@@ -77,14 +85,36 @@ spec:
                       "secret_key": "sk-lf-053f2654-f967-4c5d-9612-0405a54c41af",
                       "host": "http://langfuse.ai-platform:3001",
                   },
+                  "langfuse-app": {
+                      "database_url": f"postgresql://ai_app:{pg_pw}@postgresql.ai-data:5432/ai_metadata",
+                      "nextauth_secret": os.environ["LANGFUSE_NEXTAUTH_SECRET"],
+                      "salt": os.environ["LANGFUSE_SALT"],
+                      "user_password": os.environ["LANGFUSE_USER_PASSWORD"],
+                  },
                   "grafana": {
-                      "admin_password": "raj-ai-lab",
+                      "admin_password": os.environ["GRAFANA_ADMIN_PASSWORD"],
                   },
                   "ollama": {
                       "url": "http://host.k3d.internal:11434",
                   },
                   "redis": {
-                      "url": "redis://redis.ai-data:6379",
+                      "url": f"redis://:{os.environ['REDIS_PASSWORD']}@redis.ai-data:6379",
+                      "password": os.environ["REDIS_PASSWORD"],
+                  },
+                  "qdrant": {
+                      "api_key": os.environ.get("QDRANT_API_KEY", "qdrant-zzwmfgVdrf2BzAoPv8ZylA6ABwEYHsNp"),
+                  },
+                  "keycloak": {
+                      "admin_password": os.environ["KEYCLOAK_ADMIN_PASSWORD"],
+                      "user_password": os.environ["KEYCLOAK_USER_PASSWORD"],
+                  },
+                  "oauth2-proxy": {
+                      "client_secret": os.environ["OAUTH2_PROXY_CLIENT_SECRET"],
+                      "cookie_secret": os.environ["OAUTH2_PROXY_COOKIE_SECRET"],
+                  },
+                  "keycloak-clients": {
+                      "oauth2_proxy_secret": os.environ["OAUTH2_PROXY_CLIENT_SECRET"],
+                      "minio_secret": os.environ["MINIO_OIDC_CLIENT_SECRET"],
                   },
               }
 
@@ -99,7 +129,6 @@ spec:
               # --- Kubernetes Auth Method ---
               print("Configuring Kubernetes auth method...")
 
-              # Enable kubernetes auth
               try:
                   client.sys.enable_auth_method(
                       method_type="kubernetes",
@@ -112,13 +141,11 @@ spec:
                   else:
                       raise
 
-              # Read in-cluster CA cert and token
               with open("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "r") as f:
                   ca_cert = f.read()
               with open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r") as f:
                   jwt_token = f.read()
 
-              # Configure kubernetes auth
               client.auth.kubernetes.configure(
                   kubernetes_host="https://kubernetes.default.svc",
                   pem_keys=[],
@@ -127,7 +154,6 @@ spec:
               )
               print("Kubernetes auth configured")
 
-              # Create policy
               policy = """
               path "secret/data/*" {
                 capabilities = ["read"]
@@ -139,11 +165,10 @@ spec:
               )
               print("Policy ai-platform-read created")
 
-              # Create role
               client.auth.kubernetes.create_role(
                   name="ai-platform",
                   bound_service_account_names=["*"],
-                  bound_service_account_namespaces=["ai-platform", "ai-data"],
+                  bound_service_account_namespaces=["ai-platform", "ai-data", "auth"],
                   policies=["ai-platform-read"],
                   ttl="1h",
               )

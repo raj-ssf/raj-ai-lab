@@ -517,9 +517,9 @@ output "credentials" {
   value = <<-EOT
 
     Grafana:  admin / ${var.grafana_password}
-    Neo4j:    neo4j / rajailab
-    MinIO:    rajailab / rajailab
-    Langfuse: raj@lab.local / rajailab
+    Neo4j:    neo4j / <from vault secret/neo4j>
+    MinIO:    <from vault secret/minio>
+    Langfuse: raj@lab.local / <from vault secret/langfuse-app>
 
   EOT
 }

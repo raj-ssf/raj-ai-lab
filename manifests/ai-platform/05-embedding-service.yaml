@@ -49,8 +49,8 @@ spec:
               cache_dir = os.environ.get("MODEL_CACHE_DIR", "/app/model-cache")
               endpoint = os.environ.get("MINIO_ENDPOINT", "minio.ai-data:9000")
               bucket = os.environ.get("MINIO_MODELS_BUCKET", "models")
-              access_key = os.environ.get("MINIO_ACCESS_KEY", "rajailab")
-              secret_key = os.environ.get("MINIO_SECRET_KEY", "rajailab")
+              access_key = os.environ["MINIO_ACCESS_KEY"]
+              secret_key = os.environ["MINIO_SECRET_KEY"]
 
               short_name = model.split("/")[-1] if "/" in model else model
               models_dir = os.path.join(cache_dir, "sentence-transformers")
