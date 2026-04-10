@@ -47,6 +47,14 @@ kind: Job
 metadata:
   name: qdrant-headers-bootstrap
   namespace: ai-data
+  annotations:
+    # Run after every ArgoCD sync. ArgoCD will apply the qdrant ingress with the
+    # PLACEHOLDER api-key value during Sync, then this hook patches the live
+    # annotation with the real value from qdrant-credentials. Combined with
+    # ignoreDifferences on /metadata/annotations/.../configuration-snippet for
+    # the qdrant ingress, ArgoCD will leave the patched value alone afterwards.
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   ttlSecondsAfterFinished: 300
   backoffLimit: 5
