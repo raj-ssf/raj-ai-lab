@@ -16,7 +16,10 @@ spec:
     spec:
       containers:
         - name: minio
-          image: minio/minio:latest
+          # Pinned: this release reliably renders the OIDC SSO button in the
+          # embedded console. The 2025-09-07 release has a known issue where
+          # the console doesn't pick up identity_openid config for redirectRules.
+          image: minio/minio:RELEASE.2024-08-29T01-40-52Z
           args:
             - server
             - /data
@@ -41,6 +44,9 @@ spec:
             # Public URL so MinIO knows where to redirect after OIDC login
             - name: MINIO_BROWSER_REDIRECT_URL
               value: "https://minio.raj-ai-lab.localhost:8443"
+            # Explicitly enable OIDC provider
+            - name: MINIO_IDENTITY_OPENID_ENABLE
+              value: "on"
             # OIDC (Dex) — users log in via Dex, get mapped to consoleAdmin policy
             # The Service ingress-nginx-8443 exposes nginx ingress port 443 on
             # ClusterIP port 8443, so this URL works from inside the cluster.
