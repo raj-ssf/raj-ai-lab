@@ -112,8 +112,8 @@ spec:
               value: xforwarded
             - name: KC_HTTP_ENABLED
               value: "true"
-            - name: KC_HOSTNAME_STRICT
-              value: "false"
+            - name: KC_HOSTNAME
+              value: "https://keycloak.raj-ai-lab.localhost:8443"
             - name: JAVA_OPTS_KC_HEAP
               value: "-Xms512m -Xmx768m"
           ports:
