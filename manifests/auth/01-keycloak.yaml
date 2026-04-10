@@ -1,0 +1,188 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: auth
+---
+# Keycloak realm import — one realm with two OIDC clients and one user.
+# Mounted at /opt/keycloak/data/import/ and loaded via --import-realm.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  namespace: auth
+data:
+  raj-ai-lab.json: |
+    {
+      "realm": "raj-ai-lab",
+      "enabled": true,
+      "sslRequired": "none",
+      "registrationAllowed": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": false,
+      "editUsernameAllowed": false,
+      "bruteForceProtected": false,
+      "accessTokenLifespan": 43200,
+      "ssoSessionIdleTimeout": 43200,
+      "users": [
+        {
+          "username": "raj",
+          "email": "raj@lab.local",
+          "firstName": "Raj",
+          "lastName": "Sasidharan",
+          "enabled": true,
+          "emailVerified": true,
+          "credentials": [
+            {
+              "type": "password",
+              "value": "rajailab123",
+              "temporary": false
+            }
+          ]
+        }
+      ],
+      "clients": [
+        {
+          "clientId": "oauth2-proxy",
+          "enabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "raj-ai-lab-oauth2-proxy-secret",
+          "redirectUris": [
+            "https://auth.raj-ai-lab.localhost:8443/oauth2/callback"
+          ],
+          "webOrigins": [
+            "https://*.raj-ai-lab.localhost"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "publicClient": false,
+          "protocol": "openid-connect",
+          "defaultClientScopes": ["openid", "email", "profile"]
+        },
+        {
+          "clientId": "minio",
+          "enabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "raj-ai-lab-minio-secret",
+          "redirectUris": [
+            "https://minio.raj-ai-lab.localhost:8443/oauth_callback"
+          ],
+          "webOrigins": [
+            "https://minio.raj-ai-lab.localhost"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "publicClient": false,
+          "protocol": "openid-connect",
+          "defaultClientScopes": ["openid", "email", "profile"]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.2
+          args:
+            - start-dev
+            - --import-realm
+            - --health-enabled=true
+            - --metrics-enabled=true
+          env:
+            - name: KEYCLOAK_ADMIN
+              value: admin
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: rajailab123
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: realm-import
+          configMap:
+            name: keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: auth
+  labels:
+    app: keycloak
+spec:
+  selector:
+    app: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak-ingress
+  namespace: auth
+  annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - keycloak.raj-ai-lab.localhost
+      secretName: raj-ai-lab-keycloak-tls
+  rules:
+    - host: keycloak.raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080

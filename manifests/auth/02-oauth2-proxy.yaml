@@ -18,20 +18,21 @@ metadata:
 data:
   oauth2-proxy.cfg: |
     provider = "oidc"
-    # All Dex traffic goes through the in-cluster Service (HTTP, no TLS).
-    # The discovery doc says issuer = https://dex.raj-ai-lab.localhost:8443,
-    # so we skip issuer verification and override the URLs explicitly.
-    oidc_issuer_url = "http://dex.auth.svc.cluster.local:5556"
+    # Keycloak OIDC — internal service URL for token/JWKS/userinfo.
+    # The public issuer URL uses port 8443 (k3d ingress), but the internal
+    # service is plain HTTP on port 8080. We skip discovery and set URLs
+    # explicitly to avoid TLS/port mismatches inside the cluster.
+    oidc_issuer_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab"
     insecure_oidc_skip_issuer_verification = true
     skip_oidc_discovery = true
 
     # Browser-facing URL for the login redirect (k3d port 8443 → cluster 443)
-    login_url = "https://dex.raj-ai-lab.localhost:8443/auth"
+    login_url = "https://keycloak.raj-ai-lab.localhost:8443/realms/raj-ai-lab/protocol/openid-connect/auth"
 
-    # Backend URLs (server-side, oauth2-proxy → Dex via ClusterIP service)
-    redeem_url = "http://dex.auth.svc.cluster.local:5556/token"
-    oidc_jwks_url = "http://dex.auth.svc.cluster.local:5556/keys"
-    profile_url = "http://dex.auth.svc.cluster.local:5556/userinfo"
+    # Backend URLs (server-side, oauth2-proxy → Keycloak via ClusterIP service)
+    redeem_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab/protocol/openid-connect/token"
+    oidc_jwks_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab/protocol/openid-connect/certs"
+    profile_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab/protocol/openid-connect/userinfo"
 
     client_id = "oauth2-proxy"
     redirect_url = "https://auth.raj-ai-lab.localhost:8443/oauth2/callback"
@@ -68,13 +69,6 @@ spec:
       labels:
         app: oauth2-proxy
     spec:
-      hostAliases:
-        # Resolve dex.raj-ai-lab.localhost to nginx-ingress in-cluster IP
-        # so the OIDC discovery URL works inside the pod (routes through
-        # the ingress which has the trusted TLS cert).
-        - ip: "10.43.107.129"
-          hostnames:
-            - dex.raj-ai-lab.localhost
       containers:
         - name: oauth2-proxy
           image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0

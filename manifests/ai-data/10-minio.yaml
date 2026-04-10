@@ -47,17 +47,17 @@ spec:
             # Explicitly enable OIDC provider
             - name: MINIO_IDENTITY_OPENID_ENABLE
               value: "on"
-            # OIDC (Dex) — users log in via Dex, get mapped to consoleAdmin policy
+            # OIDC (Keycloak) — users log in via Keycloak, get mapped to consoleAdmin policy
             # The Service ingress-nginx-8443 exposes nginx ingress port 443 on
             # ClusterIP port 8443, so this URL works from inside the cluster.
             - name: MINIO_IDENTITY_OPENID_CONFIG_URL
-              value: "https://dex.raj-ai-lab.localhost:8443/.well-known/openid-configuration"
+              value: "https://keycloak.raj-ai-lab.localhost:8443/realms/raj-ai-lab/.well-known/openid-configuration"
             - name: MINIO_IDENTITY_OPENID_CLIENT_ID
               value: "minio"
             - name: MINIO_IDENTITY_OPENID_CLIENT_SECRET
               value: "raj-ai-lab-minio-secret"
             - name: MINIO_IDENTITY_OPENID_DISPLAY_NAME
-              value: "Sign in with Dex"
+              value: "Sign in with Keycloak"
             - name: MINIO_IDENTITY_OPENID_REDIRECT_URI
               value: "https://minio.raj-ai-lab.localhost:8443/oauth_callback"
             - name: MINIO_IDENTITY_OPENID_SCOPES
@@ -65,7 +65,7 @@ spec:
             # Map all OIDC users to consoleAdmin policy
             - name: MINIO_IDENTITY_OPENID_ROLE_POLICY
               value: "consoleAdmin"
-            # Trust the internal CA cert for Dex TLS verification
+            # Trust the internal CA cert for Keycloak TLS verification
             - name: SSL_CERT_DIR
               value: "/etc/ssl/certs:/etc/minio-ca"
           resources:
@@ -94,12 +94,12 @@ spec:
               mountPath: /etc/minio-ca
               readOnly: true
       hostAliases:
-        # Resolve dex.raj-ai-lab.localhost to the ingress-nginx-8443 Service
+        # Resolve keycloak.raj-ai-lab.localhost to the ingress-nginx-8443 Service
         # which exposes nginx ingress port 443 on ClusterIP port 8443. This
         # lets MinIO use the public URL with port 8443 from inside the cluster.
         - ip: "10.43.181.166"
           hostnames:
-            - dex.raj-ai-lab.localhost
+            - keycloak.raj-ai-lab.localhost
       volumes:
         - name: raj-ai-lab-ca
           secret:
