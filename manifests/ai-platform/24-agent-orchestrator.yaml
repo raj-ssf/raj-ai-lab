@@ -31,7 +31,10 @@ spec:
             - name: RAG_URL
               value: "http://rag-service.ai-platform:8000"
             - name: REDIS_URL
-              value: "redis://redis.ai-data:6379"
+              valueFrom:
+                secretKeyRef:
+                  name: redis-credentials
+                  key: url
             - name: MAX_STEPS
               value: "10"
             - name: MAX_TOKENS

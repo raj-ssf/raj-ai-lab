@@ -17,6 +17,16 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
+          command:
+            - sh
+            - -c
+            - exec redis-server --requirepass "$REDIS_PASSWORD"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-credentials
+                  key: password
           ports:
             - containerPort: 6379
           readinessProbe:
