@@ -143,7 +143,7 @@ spec:
             - --metrics-enabled=true
           env:
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
-              value: raj
+              value: _bootstrap
             - name: KC_BOOTSTRAP_ADMIN_EXPIRATION
               value: "315360000"
             - name: KC_BOOTSTRAP_ADMIN_PASSWORD
@@ -184,6 +184,87 @@ spec:
               port: 9000
             initialDelaySeconds: 60
             periodSeconds: 30
+        # Sidecar: wait for Keycloak to start, then promote bootstrap admin
+        # to permanent by removing is_temporary_admin attribute. Exits after.
+        - name: create-admin
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -uc
+            - |
+              import urllib.request, urllib.parse, json, time, os
+              KC = "http://localhost:8080"
+              boot_user = "_bootstrap"
+              boot_pw = os.environ["KC_ADMIN_PASS"]
+              admin_user = os.environ["KC_ADMIN_USER"]
+              admin_pw = os.environ["KC_ADMIN_PASS"]
+              print("Waiting for Keycloak...", flush=True)
+              for _ in range(60):
+                  try:
+                      urllib.request.urlopen("http://localhost:9000/health/ready", timeout=2)
+                      break
+                  except: time.sleep(3)
+              else:
+                  print("Timeout"); raise SystemExit(0)
+              def get_token(u, p):
+                  data = urllib.parse.urlencode({"client_id":"admin-cli","username":u,"password":p,"grant_type":"password"}).encode()
+                  return json.loads(urllib.request.urlopen(f"{KC}/realms/master/protocol/openid-connect/token", data).read())["access_token"]
+              def api(method, path, token, data=None):
+                  body = json.dumps(data).encode() if data else None
+                  req = urllib.request.Request(f"{KC}{path}", method=method, data=body,
+                      headers={"Authorization":f"Bearer {token}","Content-Type":"application/json"})
+                  try: return urllib.request.urlopen(req)
+                  except urllib.error.HTTPError as e: return e
+              # Check if permanent raj admin already exists (from a previous run)
+              try:
+                  token = get_token(admin_user, admin_pw)
+                  print(f"'{admin_user}' already exists and can authenticate — skipping", flush=True)
+                  time.sleep(1e9)
+              except: pass
+              # Login as bootstrap admin
+              print("Creating permanent admin...", flush=True)
+              token = get_token(boot_user, boot_pw)
+              # Get admin role
+              role = json.loads(api("GET", "/admin/realms/master/roles/admin", token).read())
+              # Create permanent raj user
+              resp = api("POST", "/admin/realms/master/users", token, {
+                  "username": admin_user, "email": "raj@lab.local",
+                  "firstName": "Raj", "lastName": "Sasidharan",
+                  "enabled": True, "emailVerified": True,
+                  "credentials": [{"type":"password","value":admin_pw,"temporary":False}]
+              })
+              if resp.status == 201:
+                  print(f"Created user '{admin_user}'", flush=True)
+              elif resp.status == 409:
+                  print(f"User '{admin_user}' already exists", flush=True)
+              # Get user ID and assign admin role
+              users = json.loads(api("GET", f"/admin/realms/master/users?username={admin_user}&exact=true", token).read())
+              uid = users[0]["id"]
+              api("POST", f"/admin/realms/master/users/{uid}/role-mappings/realm", token, [{"id":role["id"],"name":"admin"}])
+              print(f"Assigned admin role to '{admin_user}'", flush=True)
+              # Delete bootstrap user
+              boots = json.loads(api("GET", f"/admin/realms/master/users?username={boot_user}&exact=true", token).read())
+              if boots:
+                  api("DELETE", f"/admin/realms/master/users/{boots[0]['id']}", token)
+                  print(f"Deleted bootstrap user '{boot_user}'", flush=True)
+              print("Done — permanent admin ready", flush=True)
+              time.sleep(1e9)
+          env:
+            - name: KC_ADMIN_USER
+              value: raj
+            - name: KC_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-credentials
+                  key: admin_password
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
       volumes:
         - name: realm-template
           configMap:
