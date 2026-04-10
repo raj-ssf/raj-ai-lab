@@ -23,9 +23,43 @@ spec:
   policyTypes:
     - Egress
   egress:
-    - to: []
-      ports:
+    - ports:
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
+---
+# Allow intra-namespace egress (pods within ai-data can talk to each other)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace-egress
+  namespace: ai-data
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector: {}
+---
+# MinIO needs egress to ingress-nginx for Keycloak OIDC discovery
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minio-oidc-egress
+  namespace: ai-data
+spec:
+  podSelector:
+    matchLabels:
+      app: minio
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 443
+        - port: 8443

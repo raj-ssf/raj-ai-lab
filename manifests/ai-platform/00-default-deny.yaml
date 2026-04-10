@@ -10,6 +10,7 @@ spec:
     - Ingress
     - Egress
 ---
+# Allow DNS egress
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -20,9 +21,69 @@ spec:
   policyTypes:
     - Egress
   egress:
-    - to: []
-      ports:
+    - ports:
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
+---
+# Allow intra-namespace egress (pods within ai-platform can talk to each other)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace-egress
+  namespace: ai-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector: {}
+---
+# Allow egress to ai-data namespace (Kafka, PostgreSQL, Redis, Qdrant, Neo4j, MinIO)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-data-egress
+  namespace: ai-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai-data
+      ports:
+        - port: 9093  # Kafka (mTLS)
+        - port: 9092  # Kafka (plain)
+        - port: 5432  # PostgreSQL
+        - port: 6379  # Redis
+        - port: 6333  # Qdrant
+        - port: 7474  # Neo4j HTTP
+        - port: 7687  # Neo4j Bolt
+        - port: 9000  # MinIO API
+---
+# Allow egress to host network (Ollama on Mac via host.k3d.internal)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ollama-egress
+  namespace: ai-platform
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - port: 11434
+    - to:
+        - ipBlock:
+            cidr: 172.16.0.0/12
+      ports:
+        - port: 11434
