@@ -41,9 +41,10 @@ spec:
                   number: 7474
 ---
 # Qdrant dashboard — separate ingress so it can inject the api-key header
-# without contaminating other backends. The configuration-snippet annotation below
-# is a placeholder; the actual api-key value is patched in by the qdrant-headers-bootstrap
-# Job (see 13-qdrant-dashboard-headers.yaml) so the secret stays out of git.
+# without contaminating other backends. The configuration-snippet annotation is
+# managed out-of-band by demo/patch-qdrant-header.sh (reads the api-key from the
+# qdrant-credentials Secret and patches the live ingress). ArgoCD's ignoreDifferences
+# on this annotation prevents selfHeal from reverting it.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -52,9 +53,6 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
-    # Placeholder — real value injected by qdrant-headers-bootstrap Job from qdrant-credentials Secret
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header api-key "PLACEHOLDER";
     # Gate behind oauth2-proxy
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://auth.raj-ai-lab.localhost:8443/oauth2/start?rd=$scheme://$http_host$escaped_request_uri"

@@ -93,6 +93,11 @@ SQL
 ok "Langfuse cleaned"
 
 # ---------------------------------------------------------------------------
+step "Qdrant dashboard — inject api-key header into ingress"
+"$(dirname "$0")/patch-qdrant-header.sh"
+ok "Qdrant dashboard header patched"
+
+# ---------------------------------------------------------------------------
 step "Restart pipeline pods so they reconnect to fresh topics"
 kubectl rollout restart -n "$NS_PLATFORM" \
   deploy/normalizer deploy/chunker deploy/embedder deploy/graph-updater \
