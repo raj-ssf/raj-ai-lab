@@ -42,6 +42,8 @@ spec:
             - name: MINIO_BROWSER_REDIRECT_URL
               value: "https://minio.raj-ai-lab.localhost:8443"
             # OIDC (Dex) — users log in via Dex, get mapped to consoleAdmin policy
+            # The Service ingress-nginx-8443 exposes nginx ingress port 443 on
+            # ClusterIP port 8443, so this URL works from inside the cluster.
             - name: MINIO_IDENTITY_OPENID_CONFIG_URL
               value: "https://dex.raj-ai-lab.localhost:8443/.well-known/openid-configuration"
             - name: MINIO_IDENTITY_OPENID_CLIENT_ID
@@ -86,9 +88,10 @@ spec:
               mountPath: /etc/minio-ca
               readOnly: true
       hostAliases:
-        # Resolve dex.raj-ai-lab.localhost to the nginx ingress cluster IP
-        # so MinIO can reach Dex's public URL from inside the cluster.
-        - ip: "10.43.107.129"
+        # Resolve dex.raj-ai-lab.localhost to the ingress-nginx-8443 Service
+        # which exposes nginx ingress port 443 on ClusterIP port 8443. This
+        # lets MinIO use the public URL with port 8443 from inside the cluster.
+        - ip: "10.43.181.166"
           hostnames:
             - dex.raj-ai-lab.localhost
       volumes:
