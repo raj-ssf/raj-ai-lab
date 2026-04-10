@@ -114,6 +114,8 @@ spec:
               value: "true"
             - name: KC_HOSTNAME_STRICT
               value: "false"
+            - name: JAVA_OPTS_KC_HEAP
+              value: "-Xms512m -Xmx768m"
           ports:
             - containerPort: 8080
               name: http
@@ -124,10 +126,10 @@ spec:
           resources:
             requests:
               cpu: 200m
-              memory: 512Mi
+              memory: 768Mi
             limits:
               cpu: "1"
-              memory: 1Gi
+              memory: 1536Mi
           readinessProbe:
             httpGet:
               path: /health/ready
