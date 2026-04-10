@@ -30,7 +30,7 @@ data:
     upstreams = ["file:///dev/null"]
 
     cookie_domains = [".raj-ai-lab.localhost"]
-    whitelist_domains = [".raj-ai-lab.localhost"]
+    whitelist_domains = [".raj-ai-lab.localhost:8443", "raj-ai-lab.localhost:8443"]
     cookie_secure = true
     cookie_samesite = "lax"
     cookie_httponly = true
