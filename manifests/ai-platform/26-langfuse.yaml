@@ -91,7 +91,6 @@ spec:
               drop:
                 - ALL
       securityContext:
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false

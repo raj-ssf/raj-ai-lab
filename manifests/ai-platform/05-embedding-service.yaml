@@ -126,7 +126,6 @@ spec:
           persistentVolumeClaim:
             claimName: embedding-model-cache
       securityContext:
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false

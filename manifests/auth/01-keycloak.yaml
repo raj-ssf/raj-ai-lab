@@ -205,7 +205,6 @@ spec:
         - name: realm-import
           emptyDir: {}
       securityContext:
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false

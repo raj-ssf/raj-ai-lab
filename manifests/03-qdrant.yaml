@@ -44,6 +44,9 @@ spec:
           volumeMounts:
             - name: qdrant-data
               mountPath: /qdrant/storage
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
   volumeClaimTemplates:
     - metadata:
         name: qdrant-data

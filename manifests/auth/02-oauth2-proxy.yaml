@@ -66,7 +66,6 @@ spec:
           secret:
             secretName: raj-ai-lab-root-ca-secret
       securityContext:
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false

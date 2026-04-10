@@ -104,7 +104,6 @@ spec:
           secret:
             secretName: kafka-cluster-ca-cert
       securityContext:
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false

@@ -54,6 +54,9 @@ spec:
           volumeMounts:
             - name: neo4j-data
               mountPath: /data
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
   volumeClaimTemplates:
     - metadata:
         name: neo4j-data
