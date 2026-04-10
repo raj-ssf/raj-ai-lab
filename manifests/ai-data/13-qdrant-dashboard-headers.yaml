@@ -1,0 +1,92 @@
+---
+# Patches the raj-ai-lab-qdrant-ingress configuration-snippet annotation with the
+# api-key from qdrant-credentials Secret. nginx-ingress will then forward this
+# header to upstream Qdrant on every request, so the dashboard works without
+# users having to type the key into the UI.
+#
+# Re-run after key rotation in Vault:
+#   kubectl delete job -n ai-data qdrant-headers-bootstrap && \
+#     kubectl apply -f manifests/ai-data/13-qdrant-dashboard-headers.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: qdrant-headers-bootstrap
+  namespace: ai-data
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: qdrant-headers-bootstrap
+  namespace: ai-data
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["qdrant-credentials"]
+    verbs: ["get"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    resourceNames: ["raj-ai-lab-qdrant-ingress"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: qdrant-headers-bootstrap
+  namespace: ai-data
+subjects:
+  - kind: ServiceAccount
+    name: qdrant-headers-bootstrap
+    namespace: ai-data
+roleRef:
+  kind: Role
+  name: qdrant-headers-bootstrap
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qdrant-headers-bootstrap
+  namespace: ai-data
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 5
+  template:
+    spec:
+      serviceAccountName: qdrant-headers-bootstrap
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              API=https://kubernetes.default.svc
+              TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              NS=ai-data
+              ING=raj-ai-lab-qdrant-ingress
+
+              KEY_B64=$(curl -sS --cacert $CA -H "Authorization: Bearer $TOKEN" \
+                $API/api/v1/namespaces/$NS/secrets/qdrant-credentials \
+                | sed -n 's/.*"api_key" *: *"\([^"]*\)".*/\1/p')
+              KEY=$(printf '%s' "$KEY_B64" | base64 -d)
+
+              # Build JSON-merge patch for the configuration-snippet annotation.
+              # Use printf to safely embed the api-key value with escaped quotes
+              # for both the nginx directive and the surrounding JSON string.
+              printf '{"metadata":{"annotations":{"nginx.ingress.kubernetes.io/configuration-snippet":"proxy_set_header api-key \\"%s\\";\\n"}}}' "$KEY" > /tmp/patch.json
+              cat /tmp/patch.json
+
+              CODE=$(curl -sS --cacert $CA -o /tmp/out -w '%{http_code}' \
+                -X PATCH -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/strategic-merge-patch+json" \
+                $API/apis/networking.k8s.io/v1/namespaces/$NS/ingresses/$ING \
+                --data-binary @/tmp/patch.json)
+              echo "API response: $CODE"
+              cat /tmp/out
+              echo
+              [ "$CODE" = "200" ] || exit 1
+              echo "raj-ai-lab-qdrant-ingress configuration-snippet patched"

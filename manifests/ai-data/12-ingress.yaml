@@ -16,7 +16,6 @@ spec:
   tls:
     - hosts:
         - kafka.raj-ai-lab.localhost
-        - qdrant.raj-ai-lab.localhost
         - neo4j.raj-ai-lab.localhost
       secretName: raj-ai-lab-data-tls
   rules:
@@ -30,16 +29,6 @@ spec:
                 name: kafka-ui
                 port:
                   number: 8080
-    - host: qdrant.raj-ai-lab.localhost
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: qdrant
-                port:
-                  number: 6333
     - host: neo4j.raj-ai-lab.localhost
       http:
         paths:
@@ -50,6 +39,42 @@ spec:
                 name: graphdb
                 port:
                   number: 7474
+---
+# Qdrant dashboard — separate ingress so it can inject the api-key header
+# without contaminating other backends. The configuration-snippet annotation below
+# is a placeholder; the actual api-key value is patched in by the qdrant-headers-bootstrap
+# Job (see 13-qdrant-dashboard-headers.yaml) so the secret stays out of git.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: raj-ai-lab-qdrant-ingress
+  namespace: ai-data
+  annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    # Placeholder — real value injected by qdrant-headers-bootstrap Job from qdrant-credentials Secret
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header api-key "PLACEHOLDER";
+    # Gate behind oauth2-proxy
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.raj-ai-lab.localhost:8443/oauth2/start?rd=$scheme://$http_host$escaped_request_uri"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - qdrant.raj-ai-lab.localhost
+      secretName: raj-ai-lab-qdrant-tls
+  rules:
+    - host: qdrant.raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qdrant
+                port:
+                  number: 6333
 ---
 # MinIO Console — NO oauth2-proxy (has its own login, SPA breaks behind nginx auth gate)
 apiVersion: networking.k8s.io/v1
