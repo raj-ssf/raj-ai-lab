@@ -13,23 +13,6 @@ ok()   { printf '  \033[0;32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[0;33m!\033[0m %s\n' "$*"; }
 
 # ---------------------------------------------------------------------------
-step "Qdrant — delete all collections"
-kubectl exec -n "$NS_PLATFORM" deploy/rag-service -- python3 - <<'PY'
-import os, urllib.request, json
-url = os.environ["QDRANT_URL"]
-key = os.environ["QDRANT_API_KEY"]
-req = urllib.request.Request(f"{url}/collections", headers={"api-key": key})
-data = json.loads(urllib.request.urlopen(req).read())
-for c in data["result"]["collections"]:
-    name = c["name"]
-    print(f"  deleting {name}")
-    r = urllib.request.Request(f"{url}/collections/{name}", method="DELETE", headers={"api-key": key})
-    urllib.request.urlopen(r).read()
-print("  qdrant clean")
-PY
-ok "Qdrant cleaned"
-
-# ---------------------------------------------------------------------------
 step "Redis — FLUSHALL"
 kubectl exec -n "$NS_DATA" deploy/redis -- sh -c 'redis-cli -a "$REDIS_PASSWORD" FLUSHALL' 2>&1 | tail -1
 ok "Redis flushed"
@@ -44,29 +27,25 @@ cypher-shell -u neo4j -p "$PASS" "MATCH (n) RETURN count(n) AS remaining;"
 ok "Neo4j wiped"
 
 # ---------------------------------------------------------------------------
-step "Kafka — recreate topics via Strimzi KafkaTopic CRs"
-# Deleting the KafkaTopic CR triggers the topic-operator to delete the actual
-# Kafka topic (it owns the strimzi.io/topic-operator finalizer). Re-applying
-# creates fresh empty topics. This is the only reliable path because the broker
-# enforces ACLs on the plain listener and CLI tools from inside the pod can't
-# authenticate.
+step "Kafka — delete ALL topics then recreate from manifest"
+# Delete every KafkaTopic CR (not just the file — ensures nothing is missed).
+# The topic-operator finalizer deletes the actual Kafka topic before the CR is removed.
+# Then re-apply the manifest to create fresh empty topics.
 TOPICS_FILE="$(dirname "$0")/../manifests/ai-data/05-kafka-topics.yaml"
-if [[ ! -f "$TOPICS_FILE" ]]; then
-  warn "topics manifest not found at $TOPICS_FILE — skipping"
-else
-  kubectl delete -f "$TOPICS_FILE" --wait=true --timeout=120s 2>&1 | tail -5 || true
+kubectl delete kafkatopics -n "$NS_DATA" --all --wait=true --timeout=120s 2>&1 | tail -3 || true
+if [[ -f "$TOPICS_FILE" ]]; then
   kubectl apply -f "$TOPICS_FILE" 2>&1 | tail -5
-  echo "  waiting for topics to be ready..."
-  for _ in $(seq 1 30); do
-    READY=$(kubectl get kafkatopics -n "$NS_DATA" --no-headers 2>/dev/null | awk '{print $5}' | grep -c True || true)
-    TOTAL=$(kubectl get kafkatopics -n "$NS_DATA" --no-headers 2>/dev/null | wc -l | tr -d ' ')
-    if [[ "$READY" == "$TOTAL" && "$TOTAL" -gt 0 ]]; then
-      ok "Kafka topics recreated ($READY/$TOTAL ready)"
-      break
-    fi
-    sleep 2
-  done
 fi
+echo "  waiting for topics to be ready..."
+for _ in $(seq 1 30); do
+  READY=$(kubectl get kafkatopics -n "$NS_DATA" --no-headers 2>/dev/null | awk '{print $5}' | grep -c True || true)
+  TOTAL=$(kubectl get kafkatopics -n "$NS_DATA" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$READY" == "$TOTAL" && "$TOTAL" -gt 0 ]]; then
+    ok "Kafka topics recreated ($READY/$TOTAL ready)"
+    break
+  fi
+  sleep 2
+done
 
 # ---------------------------------------------------------------------------
 step "MinIO — empty raj-documents and qdrant-snapshots buckets"
@@ -102,7 +81,26 @@ step "Restart pipeline pods so they reconnect to fresh topics"
 kubectl rollout restart -n "$NS_PLATFORM" \
   deploy/normalizer deploy/chunker deploy/embedder deploy/graph-updater \
   deploy/rag-service deploy/agent-orchestrator >/dev/null
-ok "Restart triggered"
+echo "  waiting for rag-service to be ready..."
+kubectl rollout status -n "$NS_PLATFORM" deploy/rag-service --timeout=120s >/dev/null 2>&1 || true
+ok "Restart complete"
+
+# ---------------------------------------------------------------------------
+step "Qdrant — delete all collections (after pod restart so ensure_collection doesn't restore)"
+kubectl exec -n "$NS_PLATFORM" deploy/rag-service -- python3 - <<'PY'
+import os, urllib.request, json
+url = os.environ["QDRANT_URL"]
+key = os.environ["QDRANT_API_KEY"]
+req = urllib.request.Request(f"{url}/collections", headers={"api-key": key})
+data = json.loads(urllib.request.urlopen(req).read())
+for c in data["result"]["collections"]:
+    name = c["name"]
+    print(f"  deleting {name}")
+    r = urllib.request.Request(f"{url}/collections/{name}", method="DELETE", headers={"api-key": key})
+    urllib.request.urlopen(r).read()
+print("  qdrant clean")
+PY
+ok "Qdrant cleaned"
 
 printf '\n\033[1;32mAll stores cleaned. Ready for the next scenario.\033[0m\n'
 printf 'Next: python3 demo/seed-supply-chain.py http://localhost:8000\n'
