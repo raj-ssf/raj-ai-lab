@@ -1,85 +1,3 @@
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: auth
----
-# Keycloak realm import — one realm with two OIDC clients and one user.
-# Mounted at /opt/keycloak/data/import/ and loaded via --import-realm.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: keycloak-realm
-  namespace: auth
-data:
-  raj-ai-lab.json: |
-    {
-      "realm": "raj-ai-lab",
-      "enabled": true,
-      "sslRequired": "none",
-      "registrationAllowed": false,
-      "loginWithEmailAllowed": true,
-      "duplicateEmailsAllowed": false,
-      "resetPasswordAllowed": false,
-      "editUsernameAllowed": false,
-      "bruteForceProtected": false,
-      "accessTokenLifespan": 43200,
-      "ssoSessionIdleTimeout": 43200,
-      "users": [
-        {
-          "username": "raj",
-          "email": "raj@lab.local",
-          "firstName": "Raj",
-          "lastName": "Sasidharan",
-          "enabled": true,
-          "emailVerified": true,
-          "credentials": [
-            {
-              "type": "password",
-              "value": "__KEYCLOAK_USER_PASSWORD__",
-              "temporary": false
-            }
-          ]
-        }
-      ],
-      "clients": [
-        {
-          "clientId": "oauth2-proxy",
-          "enabled": true,
-          "clientAuthenticatorType": "client-secret",
-          "secret": "__OAUTH2_PROXY_CLIENT_SECRET__",
-          "redirectUris": [
-            "https://auth.raj-ai-lab.localhost:8443/oauth2/callback"
-          ],
-          "webOrigins": [
-            "https://*.raj-ai-lab.localhost"
-          ],
-          "standardFlowEnabled": true,
-          "directAccessGrantsEnabled": true,
-          "publicClient": false,
-          "protocol": "openid-connect",
-          "defaultClientScopes": ["openid", "email", "profile"]
-        },
-        {
-          "clientId": "minio",
-          "enabled": true,
-          "clientAuthenticatorType": "client-secret",
-          "secret": "__MINIO_CLIENT_SECRET__",
-          "redirectUris": [
-            "https://minio.raj-ai-lab.localhost:8443/oauth_callback"
-          ],
-          "webOrigins": [
-            "https://minio.raj-ai-lab.localhost"
-          ],
-          "standardFlowEnabled": true,
-          "directAccessGrantsEnabled": true,
-          "publicClient": false,
-          "protocol": "openid-connect",
-          "defaultClientScopes": ["openid", "email", "profile"]
-        }
-      ]
-    }
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -97,7 +15,7 @@ spec:
     spec:
       initContainers:
         - name: realm-template
-          image: python:3.12-slim
+          image: python:3.12-slim@sha256:c0f9f8769445b9117692977abd450e79a6313139c8bedbb61c500b687f7b5ddf
           command:
             - python3
             - -c
@@ -133,9 +51,14 @@ spec:
               readOnly: true
             - name: realm-import
               mountPath: /output
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:26.2
+          image: quay.io/keycloak/keycloak:26.2@sha256:f7fff69c55f8ca7e675803562a681222bbfecbc90fab1eb004df9eb5b655763b
           args:
             - start-dev
             - --import-realm
@@ -184,10 +107,15 @@ spec:
               port: 9000
             initialDelaySeconds: 60
             periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
         # Sidecar: wait for Keycloak to start, then promote bootstrap admin
         # to permanent by removing is_temporary_admin attribute. Exits after.
         - name: create-admin
-          image: python:3.12-slim
+          image: python:3.12-slim@sha256:c0f9f8769445b9117692977abd450e79a6313139c8bedbb61c500b687f7b5ddf
           imagePullPolicy: IfNotPresent
           command:
             - python3
@@ -265,51 +193,19 @@ spec:
             limits:
               cpu: 50m
               memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: realm-template
           configMap:
             name: keycloak-realm
         - name: realm-import
           emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: keycloak
-  namespace: auth
-  labels:
-    app: keycloak
-spec:
-  selector:
-    app: keycloak
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 8080
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: keycloak-ingress
-  namespace: auth
-  annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
-    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - keycloak.raj-ai-lab.localhost
-      secretName: raj-ai-lab-keycloak-tls
-  rules:
-    - host: keycloak.raj-ai-lab.localhost
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8080
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false

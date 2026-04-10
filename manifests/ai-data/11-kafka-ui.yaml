@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: kafka-ui
-          image: provectuslabs/kafka-ui:latest
+          image: provectuslabs/kafka-ui:latest@sha256:d8cc95d7a6df6556197e118b7bb1264742ae91c1ba21dbdb4b1a22b0f0909f57
           imagePullPolicy: IfNotPresent
           env:
             - name: KAFKA_CLUSTERS_0_NAME
@@ -72,6 +72,11 @@ spec:
             - name: kafka-cluster-ca
               mountPath: /etc/kafka-cluster-ca
               readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: kafka-ui-cert
           secret:
@@ -79,14 +84,9 @@ spec:
         - name: kafka-cluster-ca
           secret:
             secretName: kafka-cluster-ca-cert
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kafka-ui
-  namespace: ai-data
-spec:
-  selector:
-    app: kafka-ui
-  ports:
-    - port: 8080
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null

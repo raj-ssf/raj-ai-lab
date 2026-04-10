@@ -1,25 +1,3 @@
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: embedding-config
-  namespace: ai-platform
-data:
-  # Change EMBEDDING_MODEL, restart deployment — initContainer downloads from MinIO.
-  # ArgoCD syncs the ConfigMap change, pods restart, new model loaded. No image rebuild.
-  #
-  # To add a new model:
-  #   1. Upload files to MinIO: s3://models/{model-name}/
-  #   2. Update EMBEDDING_MODEL here
-  #   3. Delete PVC (kubectl delete pvc embedding-model-cache -n ai-platform)
-  #   4. ArgoCD syncs → pods restart → initContainer downloads from MinIO → cached on PVC
-  EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
-  MODEL_CACHE_DIR: "/app/model-cache"
-  MINIO_ENDPOINT: "minio.ai-data:9000"
-  MINIO_MODELS_BUCKET: "models"
-  TRANSFORMERS_OFFLINE: "1"
-  HF_HUB_OFFLINE: "1"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -39,7 +17,7 @@ spec:
     spec:
       initContainers:
         - name: model-loader
-          image: python:3.12-slim
+          image: python:3.12-slim@sha256:c0f9f8769445b9117692977abd450e79a6313139c8bedbb61c500b687f7b5ddf
           command:
             - python3
             - -c
@@ -102,6 +80,11 @@ spec:
           volumeMounts:
             - name: model-cache
               mountPath: /app/model-cache
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       containers:
         - name: embedding
           image: raj/embedding-service:latest
@@ -133,29 +116,17 @@ spec:
           volumeMounts:
             - name: model-cache
               mountPath: /app/model-cache
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: model-cache
           persistentVolumeClaim:
             claimName: embedding-model-cache
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: embedding-model-cache
-  namespace: ai-platform
-spec:
-  accessModes: [ReadWriteOnce]
-  resources:
-    requests:
-      storage: 2Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: embedding-service
-  namespace: ai-platform
-spec:
-  selector:
-    app: embedding-service
-  ports:
-    - port: 8080
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false

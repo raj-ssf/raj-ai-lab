@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7-alpine
+          image: redis:7-alpine@sha256:c1b9f9ba224f516e43f1a4b0cfb29b9e31ebf04f5ff194dd8140114a198c346e
           command:
             - sh
             - -c
@@ -46,14 +46,14 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis
-  namespace: ai-data
-spec:
-  selector:
-    app: redis
-  ports:
-    - port: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null

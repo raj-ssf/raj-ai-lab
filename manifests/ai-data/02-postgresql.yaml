@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: postgresql
-          image: postgres:16-alpine
+          image: postgres:16-alpine@sha256:d4e7bbd53503d420c248ad3039898876b7971bf5e51a6eb2f0b8c00ae8e718d0
           ports:
             - containerPort: 5432
           env:
@@ -49,6 +49,17 @@ spec:
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null
   volumeClaimTemplates:
     - metadata:
         name: pgdata
@@ -57,26 +68,3 @@ spec:
         resources:
           requests:
             storage: 1Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgresql
-  namespace: ai-data
-spec:
-  selector:
-    app: postgresql
-  ports:
-    - port: 5432
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgresql-headless
-  namespace: ai-data
-spec:
-  clusterIP: None
-  selector:
-    app: postgresql
-  ports:
-    - port: 5432

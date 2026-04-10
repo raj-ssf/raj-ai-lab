@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: langfuse
-          image: langfuse/langfuse:2
+          image: langfuse/langfuse:2@sha256:59be0810c76e2b09e5cf17e01eaa1e283ab9af3ede6e5151a9ceaa15465914c6
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -85,15 +85,14 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: langfuse
-  namespace: ai-platform
-spec:
-  selector:
-    app: langfuse
-  ports:
-    - port: 3001
-      targetPort: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null

@@ -1,19 +1,3 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: rag-config
-  namespace: ai-platform
-data:
-  EMBEDDING_URL: "http://embedding-service.ai-platform:8080"
-  QDRANT_URL: "http://qdrant.ai-data:6333"
-  QDRANT_COLLECTION: "raj-docs"
-  OLLAMA_URL: "http://host.k3d.internal:11434"
-  OLLAMA_MODEL: "llama3.2:latest"
-  TOP_K: "3"
-  KAFKA_BOOTSTRAP: "kafka-kafka-bootstrap.ai-data:9093"
-  KAFKA_SECURITY_PROTOCOL: "SSL"
-  KAFKA_CERT_DIR: "/etc/kafka-certs"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -107,6 +91,11 @@ spec:
               port: 8000
             initialDelaySeconds: 60
             periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: kafka-certs
           secret:
@@ -114,17 +103,9 @@ spec:
         - name: kafka-cluster-ca
           secret:
             secretName: kafka-cluster-ca-cert
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: rag-service
-  namespace: ai-platform
-  labels:
-    app: rag-service
-spec:
-  selector:
-    app: rag-service
-  ports:
-    - name: http
-      port: 8000
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null

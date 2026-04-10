@@ -11,7 +11,7 @@ spec:
       serviceAccountName: default
       containers:
         - name: vault-init
-          image: python:3.12-slim
+          image: python:3.12-slim@sha256:c0f9f8769445b9117692977abd450e79a6313139c8bedbb61c500b687f7b5ddf
           envFrom:
             - secretRef:
                 name: vault-bootstrap-secrets
@@ -176,3 +176,12 @@ spec:
 
               print("Vault initialization complete!")
               PYEOF
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault

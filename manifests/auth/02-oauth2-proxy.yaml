@@ -1,50 +1,3 @@
----
-# oauth2-proxy-secrets is created by ESO from Vault (see vault/08-external-secrets-auth.yaml)
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: oauth2-proxy-config
-  namespace: auth
-data:
-  oauth2-proxy.cfg: |
-    provider = "oidc"
-    # Keycloak OIDC — internal service URL for token/JWKS/userinfo.
-    # The public issuer URL uses port 8443 (k3d ingress), but the internal
-    # service is plain HTTP on port 8080. We skip discovery and set URLs
-    # explicitly to avoid TLS/port mismatches inside the cluster.
-    oidc_issuer_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab"
-    insecure_oidc_skip_issuer_verification = true
-    skip_oidc_discovery = true
-
-    # Browser-facing URL for the login redirect (k3d port 8443 → cluster 443)
-    login_url = "https://keycloak.raj-ai-lab.localhost:8443/realms/raj-ai-lab/protocol/openid-connect/auth"
-
-    # Backend URLs (server-side, oauth2-proxy → Keycloak via ClusterIP service)
-    redeem_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab/protocol/openid-connect/token"
-    oidc_jwks_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab/protocol/openid-connect/certs"
-    profile_url = "http://keycloak.auth.svc.cluster.local:8080/realms/raj-ai-lab/protocol/openid-connect/userinfo"
-
-    client_id = "oauth2-proxy"
-    redirect_url = "https://auth.raj-ai-lab.localhost:8443/oauth2/callback"
-    upstreams = ["file:///dev/null"]
-
-    cookie_domains = [".raj-ai-lab.localhost"]
-    whitelist_domains = [".raj-ai-lab.localhost:8443", "raj-ai-lab.localhost:8443"]
-    cookie_secure = true
-    cookie_samesite = "lax"
-    cookie_httponly = true
-    cookie_expire = "12h"
-
-    email_domains = ["*"]
-    pass_access_token = true
-    pass_authorization_header = true
-    set_authorization_header = true
-    set_xauthrequest = true
-
-    skip_provider_button = true
-    reverse_proxy = true
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -62,7 +15,7 @@ spec:
     spec:
       containers:
         - name: oauth2-proxy
-          image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0@sha256:ae5014b2ad58e04fe95bc6bd37a257ba61a7d3b61a9e6b78e20cfad7e36e8a5e
           args:
             - --config=/etc/oauth2-proxy/oauth2-proxy.cfg
             - --http-address=0.0.0.0:4180
@@ -100,6 +53,11 @@ spec:
               port: 4180
             initialDelaySeconds: 5
             periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: config
           configMap:
@@ -107,43 +65,9 @@ spec:
         - name: ca-cert
           secret:
             secretName: raj-ai-lab-root-ca-secret
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: oauth2-proxy
-  namespace: auth
-  labels:
-    app: oauth2-proxy
-spec:
-  selector:
-    app: oauth2-proxy
-  ports:
-    - name: http
-      port: 4180
-      targetPort: 4180
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: oauth2-proxy-ingress
-  namespace: auth
-  annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - auth.raj-ai-lab.localhost
-      secretName: raj-ai-lab-auth-tls
-  rules:
-    - host: auth.raj-ai-lab.localhost
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: oauth2-proxy
-                port:
-                  number: 4180
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null

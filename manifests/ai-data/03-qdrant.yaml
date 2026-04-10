@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: qdrant
-          image: qdrant/qdrant:v1.12.0
+          image: qdrant/qdrant:v1.12.0@sha256:1127cd5310387a0b8e68a7090c7d7c0bad3033a876e298cfb742666fb70c9212
           env:
             - name: QDRANT__SERVICE__API_KEY
               valueFrom:
@@ -56,6 +56,17 @@ spec:
           volumeMounts:
             - name: qdrant-data
               mountPath: /qdrant/storage
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null
   volumeClaimTemplates:
     - metadata:
         name: qdrant-data
@@ -64,32 +75,3 @@ spec:
         resources:
           requests:
             storage: 2Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: qdrant
-  namespace: ai-data
-spec:
-  selector:
-    app: qdrant
-  ports:
-    - name: http
-      port: 6333
-    - name: grpc
-      port: 6334
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: qdrant-headless
-  namespace: ai-data
-spec:
-  clusterIP: None
-  selector:
-    app: qdrant
-  ports:
-    - name: http
-      port: 6333
-    - name: grpc
-      port: 6334

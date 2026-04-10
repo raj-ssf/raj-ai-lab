@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: neo4j
-          image: neo4j:5.26-community
+          image: neo4j:5.26-community@sha256:a5163941dd4bbf2a2232586fbc68c428d987fffa988f26ce2aa71c69b928ae36
           ports:
             - containerPort: 7474
               name: http
@@ -54,6 +54,17 @@ spec:
           volumeMounts:
             - name: neo4j-data
               mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null
   volumeClaimTemplates:
     - metadata:
         name: neo4j-data
@@ -62,32 +73,3 @@ spec:
         resources:
           requests:
             storage: 2Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: graphdb
-  namespace: ai-data
-spec:
-  selector:
-    app: neo4j
-  ports:
-    - name: http
-      port: 7474
-    - name: bolt
-      port: 7687
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: graphdb-headless
-  namespace: ai-data
-spec:
-  clusterIP: None
-  selector:
-    app: neo4j
-  ports:
-    - name: http
-      port: 7474
-    - name: bolt
-      port: 7687

@@ -19,7 +19,7 @@ spec:
           # Pinned: this release reliably renders the OIDC SSO button in the
           # embedded console. The 2025-09-07 release has a known issue where
           # the console doesn't pick up identity_openid config for redirectRules.
-          image: minio/minio:RELEASE.2025-04-03T14-56-28Z
+          image: minio/minio:RELEASE.2025-04-03T14-56-28Z@sha256:860cbcf9087c405add04e87db6abbf1284a54c4278c5cd5f449e01e2a2e0ca03
           args:
             - server
             - /data
@@ -96,6 +96,11 @@ spec:
             - name: raj-ai-lab-ca
               mountPath: /etc/minio-ca
               readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
       hostAliases:
         # Resolve keycloak.raj-ai-lab.localhost to the ingress-nginx-8443 Service
         # which exposes nginx ingress port 443 on ClusterIP port 8443. This
@@ -107,6 +112,12 @@ spec:
         - name: raj-ai-lab-ca
           secret:
             secretName: raj-ai-lab-root-ca-secret
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers: null
   volumeClaimTemplates:
     - metadata:
         name: minio-data
@@ -115,43 +126,3 @@ spec:
         resources:
           requests:
             storage: 5Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: minio
-  namespace: ai-data
-spec:
-  selector:
-    app: minio
-  ports:
-    - name: api
-      port: 9000
-    - name: console
-      port: 9001
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: minio-headless
-  namespace: ai-data
-spec:
-  clusterIP: None
-  selector:
-    app: minio
-  ports:
-    - name: api
-      port: 9000
-    - name: console
-      port: 9001
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: minio-pdb
-  namespace: ai-data
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: minio

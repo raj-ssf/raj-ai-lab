@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: neo4j
-          image: neo4j:5.26-community
+          image: neo4j:5.26-community@sha256:a5163941dd4bbf2a2232586fbc68c428d987fffa988f26ce2aa71c69b928ae36
           ports:
             - containerPort: 7474
               name: http
