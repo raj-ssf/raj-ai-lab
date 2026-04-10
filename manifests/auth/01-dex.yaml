@@ -34,6 +34,11 @@ data:
           - https://auth.raj-ai-lab.localhost:8443/oauth2/callback
         name: oauth2-proxy
         secret: raj-ai-lab-oauth2-proxy-secret
+      - id: minio
+        redirectURIs:
+          - https://minio.raj-ai-lab.localhost:8443/oauth_callback
+        name: MinIO
+        secret: raj-ai-lab-minio-secret
 ---
 apiVersion: v1
 kind: ServiceAccount

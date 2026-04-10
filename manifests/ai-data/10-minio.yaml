@@ -38,6 +38,28 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: secret_key
+            # Public URL so MinIO knows where to redirect after OIDC login
+            - name: MINIO_BROWSER_REDIRECT_URL
+              value: "https://minio.raj-ai-lab.localhost:8443"
+            # OIDC (Dex) — users log in via Dex, get mapped to consoleAdmin policy
+            - name: MINIO_IDENTITY_OPENID_CONFIG_URL
+              value: "https://dex.raj-ai-lab.localhost:8443/.well-known/openid-configuration"
+            - name: MINIO_IDENTITY_OPENID_CLIENT_ID
+              value: "minio"
+            - name: MINIO_IDENTITY_OPENID_CLIENT_SECRET
+              value: "raj-ai-lab-minio-secret"
+            - name: MINIO_IDENTITY_OPENID_DISPLAY_NAME
+              value: "Sign in with Dex"
+            - name: MINIO_IDENTITY_OPENID_REDIRECT_URI
+              value: "https://minio.raj-ai-lab.localhost:8443/oauth_callback"
+            - name: MINIO_IDENTITY_OPENID_SCOPES
+              value: "openid,email,profile"
+            # Map all OIDC users to consoleAdmin policy
+            - name: MINIO_IDENTITY_OPENID_ROLE_POLICY
+              value: "consoleAdmin"
+            # Trust the internal CA cert for Dex TLS verification
+            - name: SSL_CERT_DIR
+              value: "/etc/ssl/certs:/etc/minio-ca"
           resources:
             requests:
               cpu: 100m
@@ -60,6 +82,19 @@ spec:
           volumeMounts:
             - name: minio-data
               mountPath: /data
+            - name: raj-ai-lab-ca
+              mountPath: /etc/minio-ca
+              readOnly: true
+      hostAliases:
+        # Resolve dex.raj-ai-lab.localhost to the nginx ingress cluster IP
+        # so MinIO can reach Dex's public URL from inside the cluster.
+        - ip: "10.43.107.129"
+          hostnames:
+            - dex.raj-ai-lab.localhost
+      volumes:
+        - name: raj-ai-lab-ca
+          secret:
+            secretName: raj-ai-lab-root-ca-secret
   volumeClaimTemplates:
     - metadata:
         name: minio-data
