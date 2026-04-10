@@ -1,4 +1,5 @@
 ---
+# Data layer UIs (except MinIO) — gated behind oauth2-proxy
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -6,11 +7,10 @@ metadata:
   namespace: ai-data
   annotations:
     cert-manager.io/cluster-issuer: raj-ai-lab-ca
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
-    # Gate behind oauth2-proxy: redirect unauthenticated users to login
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    # Gate behind oauth2-proxy
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://auth.raj-ai-lab.localhost:8443/oauth2/start?rd=$scheme://$http_host$escaped_request_uri"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email, Authorization"
 spec:
   ingressClassName: nginx
   tls:
@@ -18,7 +18,6 @@ spec:
         - kafka.raj-ai-lab.localhost
         - qdrant.raj-ai-lab.localhost
         - neo4j.raj-ai-lab.localhost
-        - minio.raj-ai-lab.localhost
       secretName: raj-ai-lab-data-tls
   rules:
     - host: kafka.raj-ai-lab.localhost
@@ -51,6 +50,24 @@ spec:
                 name: graphdb
                 port:
                   number: 7474
+---
+# MinIO Console — NO oauth2-proxy (has its own login, SPA breaks behind nginx auth gate)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: raj-ai-lab-minio-ingress
+  namespace: ai-data
+  annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - minio.raj-ai-lab.localhost
+      secretName: raj-ai-lab-minio-tls
+  rules:
     - host: minio.raj-ai-lab.localhost
       http:
         paths:
