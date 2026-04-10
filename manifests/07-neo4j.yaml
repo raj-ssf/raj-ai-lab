@@ -24,7 +24,7 @@ spec:
               name: bolt
           env:
             - name: NEO4J_AUTH
-              value: "neo4j/rajailab123"
+              value: "neo4j/rajailab"
             - name: NEO4J_PLUGINS
               value: '["apoc"]'
             - name: NEO4J_server_default__listen__address

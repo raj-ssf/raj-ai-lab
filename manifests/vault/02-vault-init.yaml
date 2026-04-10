@@ -64,12 +64,12 @@ spec:
                   },
                   "neo4j": {
                       "username": "neo4j",
-                      "password": "rajailab123",
+                      "password": "rajailab",
                       "uri": "bolt://graphdb.ai-data:7687",
                   },
                   "minio": {
                       "access_key": "rajailab",
-                      "secret_key": "rajailab123",
+                      "secret_key": "rajailab",
                       "endpoint": "minio.ai-data:9000",
                   },
                   "langfuse": {

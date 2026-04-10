@@ -6,7 +6,7 @@ Usage:
   python3 demo/init-langfuse.py [langfuse_url]
 
 Waits for Langfuse to be ready, then:
-  1. Creates admin account (raj@lab.local / rajailab123)
+  1. Creates admin account (raj@lab.local / rajailab)
   2. Creates "raj-ai-lab" project
   3. Generates API key pair
   4. Creates/updates K8s secret "langfuse-api-keys" in ai-platform namespace
@@ -20,7 +20,7 @@ import urllib.error
 
 LANGFUSE_URL = sys.argv[1] if len(sys.argv) > 1 else "http://langfuse.ai-platform:3001"
 EMAIL = os.environ.get("LANGFUSE_ADMIN_EMAIL", "raj@lab.local")
-PASSWORD = os.environ.get("LANGFUSE_ADMIN_PASSWORD", "rajailab123")
+PASSWORD = os.environ.get("LANGFUSE_ADMIN_PASSWORD", "rajailab")
 PROJECT_NAME = os.environ.get("LANGFUSE_PROJECT", "raj-ai-lab")
 
 def post(path, data, headers=None):
@@ -105,7 +105,7 @@ print("  LANGFUSE_INIT_PROJECT_PUBLIC_KEY=pk-lf-raj-ai-lab")
 print("  LANGFUSE_INIT_PROJECT_SECRET_KEY=sk-lf-raj-ai-lab")
 print("  LANGFUSE_INIT_USER_EMAIL=raj@lab.local")
 print("  LANGFUSE_INIT_USER_NAME=Raj AI Lab Admin")
-print("  LANGFUSE_INIT_USER_PASSWORD=rajailab123")
+print("  LANGFUSE_INIT_USER_PASSWORD=rajailab")
 print()
 print("These will auto-create the org, project, user, and API keys on startup.")
 print("No manual setup needed.")

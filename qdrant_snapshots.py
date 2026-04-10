@@ -15,7 +15,7 @@ QDRANT_URL = os.environ.get("QDRANT_URL", "http://qdrant.ai-data:6333")
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
 MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "minio.ai-data:9000")
 MINIO_ACCESS = os.environ.get("MINIO_ACCESS_KEY", "rajailab")
-MINIO_SECRET = os.environ.get("MINIO_SECRET_KEY", "rajailab123")
+MINIO_SECRET = os.environ.get("MINIO_SECRET_KEY", "rajailab")
 BACKUP_BUCKET = "qdrant-snapshots"
 
 

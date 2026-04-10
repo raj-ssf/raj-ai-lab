@@ -63,7 +63,7 @@ RAG_URL = os.environ.get("RAG_URL", "http://rag-service.ai-platform:8000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis.ai-data:6379")
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://graphdb.ai-data:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "rajailab123")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "rajailab")
 MAX_STEPS = int(os.environ.get("MAX_STEPS", "10"))
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "50000"))
 
