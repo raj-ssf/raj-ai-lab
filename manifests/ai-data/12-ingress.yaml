@@ -17,6 +17,7 @@ spec:
     - hosts:
         - kafka.raj-ai-lab.localhost
         - neo4j.raj-ai-lab.localhost
+        - bolt-neo4j.raj-ai-lab.localhost
       secretName: raj-ai-lab-data-tls
   rules:
     - host: kafka.raj-ai-lab.localhost
@@ -39,6 +40,16 @@ spec:
                 name: graphdb
                 port:
                   number: 7474
+    - host: bolt-neo4j.raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: graphdb
+                port:
+                  number: 7687
 ---
 # Qdrant dashboard — separate ingress so it can inject the api-key header
 # without contaminating other backends. The configuration-snippet annotation is
