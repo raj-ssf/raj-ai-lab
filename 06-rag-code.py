@@ -59,7 +59,7 @@ ACTIVE_QUERIES = Gauge("rag_active_queries", "Currently running queries")
 @app.get("/metrics", response_class=PlainTextResponse)
 def metrics():
     return generate_latest()
-qdrant = QdrantClient(url=os.environ["QDRANT_URL"])
+qdrant = QdrantClient(url=os.environ["QDRANT_URL"], api_key=os.environ.get("QDRANT_API_KEY"))
 cache = redis.from_url(os.environ["REDIS_URL"])
 
 # Langfuse tracing

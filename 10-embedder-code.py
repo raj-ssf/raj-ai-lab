@@ -36,7 +36,7 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
-qdrant = QdrantClient(url=QDRANT_URL)
+qdrant = QdrantClient(url=QDRANT_URL, api_key=os.environ.get("QDRANT_API_KEY"))
 
 def ensure_collection(name):
     """Create or recreate collection if dimensions mismatch. Snapshots before delete, restores if available."""

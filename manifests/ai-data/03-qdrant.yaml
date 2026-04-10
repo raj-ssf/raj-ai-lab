@@ -17,6 +17,18 @@ spec:
       containers:
         - name: qdrant
           image: qdrant/qdrant:v1.12.0
+          env:
+            - name: QDRANT__SERVICE__API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: qdrant-credentials
+                  key: api_key
+            # Allow read-only operations without auth so liveness/readiness probes work
+            - name: QDRANT__SERVICE__READ_ONLY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: qdrant-credentials
+                  key: api_key
           ports:
             - containerPort: 6333
               name: http

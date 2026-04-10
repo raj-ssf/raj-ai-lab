@@ -62,6 +62,11 @@ spec:
                 secretKeyRef:
                   name: langfuse-credentials
                   key: host
+            - name: QDRANT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: qdrant-credentials
+                  key: api_key
           volumeMounts:
             - name: kafka-certs
               mountPath: /etc/kafka-certs

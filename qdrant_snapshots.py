@@ -12,10 +12,16 @@ import urllib.error
 import urllib.request
 
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://qdrant.ai-data:6333")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
 MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "minio.ai-data:9000")
 MINIO_ACCESS = os.environ.get("MINIO_ACCESS_KEY", "rajailab")
 MINIO_SECRET = os.environ.get("MINIO_SECRET_KEY", "rajailab123")
 BACKUP_BUCKET = "qdrant-snapshots"
+
+
+def _qdrant_headers():
+    """Build headers with API key for Qdrant requests."""
+    return {"api-key": QDRANT_API_KEY} if QDRANT_API_KEY else {}
 
 
 def _get_minio():
@@ -40,7 +46,8 @@ def snapshot_collection(collection_name, dimensions):
         # Create snapshot via Qdrant API
         req = urllib.request.Request(
             f"{QDRANT_URL}/collections/{collection_name}/snapshots",
-            method="POST"
+            method="POST",
+            headers=_qdrant_headers(),
         )
         resp = urllib.request.urlopen(req, timeout=30)
         snap_info = json.loads(resp.read()).get("result", {})
@@ -52,7 +59,8 @@ def snapshot_collection(collection_name, dimensions):
 
         # Download snapshot
         snap_url = f"{QDRANT_URL}/collections/{collection_name}/snapshots/{snap_name}"
-        snap_data = urllib.request.urlopen(snap_url, timeout=120).read()
+        dl_req = urllib.request.Request(snap_url, headers=_qdrant_headers())
+        snap_data = urllib.request.urlopen(dl_req, timeout=120).read()
 
         # Upload to MinIO: qdrant-snapshots/{collection}/{dim}/{snapshot-file}
         s3_key = f"{collection_name}/dim-{dimensions}/{snap_name}"
@@ -63,7 +71,8 @@ def snapshot_collection(collection_name, dimensions):
         try:
             del_req = urllib.request.Request(
                 f"{QDRANT_URL}/collections/{collection_name}/snapshots/{snap_name}",
-                method="DELETE"
+                method="DELETE",
+                headers=_qdrant_headers(),
             )
             urllib.request.urlopen(del_req, timeout=10)
         except:
@@ -115,10 +124,12 @@ def restore_collection(collection_name, dimensions):
             f"Content-Type: application/octet-stream\r\n\r\n"
         ).encode() + snap_data + f"\r\n--{boundary}--\r\n".encode()
 
+        upload_headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+        upload_headers.update(_qdrant_headers())
         req = urllib.request.Request(
             f"{QDRANT_URL}/collections/{collection_name}/snapshots/upload",
             data=body,
-            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            headers=upload_headers,
             method="POST"
         )
 
