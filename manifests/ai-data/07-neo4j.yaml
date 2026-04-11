@@ -36,6 +36,8 @@ spec:
             - name: NEO4J_server_default__listen__address
               value: "0.0.0.0"
             - name: NEO4J_server_default__advertised__address
+              value: "neo4j.raj-ai-lab.localhost"
+            - name: NEO4J_server_http_advertised__address
               value: "neo4j.raj-ai-lab.localhost:8443"
             - name: NEO4J_server_bolt_advertised__address
               value: "bolt-neo4j.raj-ai-lab.localhost:8443"
