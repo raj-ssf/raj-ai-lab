@@ -49,6 +49,10 @@ spec:
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
   volumeClaimTemplates:
     - metadata:
         name: pgdata

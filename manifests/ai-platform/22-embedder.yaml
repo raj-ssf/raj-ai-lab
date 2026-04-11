@@ -59,10 +59,6 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
                 - ALL
       volumes:
         - name: kafka-certs

@@ -56,6 +56,10 @@ spec:
           volumeMounts:
             - name: qdrant-data
               mountPath: /qdrant/storage
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
   volumeClaimTemplates:
     - metadata:
         name: qdrant-data
