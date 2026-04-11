@@ -64,11 +64,11 @@ spec:
               value: "groups"
             - name: NEO4J_dbms_security_oidc_keycloak_authorization_group__to__role__mapping
               value: "admin=admin"
-            # Trust self-signed CA
             - name: NEO4J_dbms_security_oidc_keycloak_get__groups__from__user__info
               value: "false"
-            # JVM truststore with self-signed CA for Keycloak OIDC
-            - name: NEO4J_server_jvm_additional
+            # JAVA_TOOL_OPTIONS is the only reliable way to inject JVM args
+            # (NEO4J_server_jvm_additional gets overwritten by neo4j.conf defaults)
+            - name: JAVA_TOOL_OPTIONS
               value: "-Djavax.net.ssl.trustStore=/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
           resources:
             requests:
