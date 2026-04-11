@@ -40,6 +40,7 @@ Built with real production patterns: Kafka event streaming, microservice data pi
 │  │  OBSERVABILITY & GOVERNANCE                                    │ │
 │  │                                                                │ │
 │  │  Prometheus + Grafana    Langfuse (LLM tracing)                │ │
+│  │  Grafana Tempo (traces)  OpenTelemetry (instrumentation)       │ │
 │  │  ArgoCD (GitOps)         Kyverno (policy enforcement)          │ │
 │  │  Kafka UI                HPA autoscaling                       │ │
 │  └───────────────────────────────────────────────────────────────┘ │
@@ -56,7 +57,7 @@ Built with real production patterns: Kafka event streaming, microservice data pi
 | **PostgreSQL** | Metadata storage, Langfuse backend, evaluation results |
 | **Qdrant** | Vector database for semantic search (384-dim, cosine similarity) |
 | **Redis** | Query cache (1hr TTL), agent state, kill switch |
-| **Neo4j** | Knowledge graph — suppliers, parts, products, production lines |
+| **Neo4j Enterprise** | Knowledge graph — suppliers, parts, products, production lines. OIDC SSO via Keycloak (PKCE) |
 | **MinIO** | S3-compatible object storage for raw documents |
 | **Kafka UI** | Web UI to browse topics and messages |
 
@@ -74,16 +75,23 @@ Built with real production patterns: Kafka event streaming, microservice data pi
 | **RAG UI** | Gradio web UI — query, ingest text, upload files (PDF support) |
 | **Langfuse** | LLM observability — traces, latency, token tracking |
 | **Evaluation** | Benchmarks RAG quality, stores results in PostgreSQL |
+| **Portal** | Dashboard with 13 service tiles, shared SSO cookie |
 
 ### Infrastructure
 
 | Component | Namespace | Purpose |
 |-----------|-----------|---------|
-| **ArgoCD** | `argocd` | GitOps — auto-syncs manifests from this repo |
-| **Prometheus + Grafana** | `monitoring` | Metrics collection and dashboards |
-| **Nginx Ingress** | `ingress-nginx` | Subdomain-based routing for all UIs |
+| **ArgoCD** | `argocd` | GitOps — auto-syncs manifests from this repo. Keycloak OIDC SSO |
+| **Prometheus + Grafana** | `monitoring` | Metrics collection and dashboards. Grafana auto-login via Keycloak |
+| **Grafana Tempo** | `monitoring` | Distributed trace backend (OTLP gRPC). Traces dashboard in Grafana |
+| **Keycloak** | `auth` | OIDC identity provider — SSO for all services. Realm import with 5 clients |
+| **oauth2-proxy** | `auth` | SSO gate for Kafka UI, Qdrant, Prometheus, RAG UI |
+| **Vault** | `vault` | Production mode (file backend, auto-unseal CronJob, audit logging) |
+| **External Secrets** | `vault` | Vault → K8s Secrets across 4 namespaces (16 ExternalSecrets) |
+| **Nginx Ingress** | `ingress-nginx` | Subdomain-based routing with mkcert wildcard TLS |
 | **Kyverno** | `kyverno` | Policy enforcement (resource limits, labels, probes) |
 | **Ollama** | macOS native | LLM inference on Apple Silicon (llama3.2 + deepseek-r1) |
+| **Local Registry** | Docker | `k3d-registry.localhost:5555` — 32 cached third-party images |
 
 ## Quick Start
 
@@ -134,22 +142,29 @@ ollama pull deepseek-r1
 
 ## Access — All UIs
 
-All UIs are accessible via subdomain-based ingress on port 8080. No port-forwarding needed.
+All UIs are accessible via subdomain-based ingress on port 8443 (HTTPS) with mkcert wildcard TLS. No port-forwarding needed. Browsers trust the certificates natively.
 
-| UI | URL | Credentials |
-|----|-----|-------------|
-| **RAG UI** | http://raj-ai-lab.localhost:8080 | — |
-| **Qdrant** | http://qdrant.raj-ai-lab.localhost:8080 | — |
-| **Kafka UI** | http://kafka.raj-ai-lab.localhost:8080 | — |
-| **Neo4j Browser** | http://neo4j.raj-ai-lab.localhost:8080 | neo4j / `vault kv get secret/neo4j` |
-| **MinIO Console** | http://minio.raj-ai-lab.localhost:8080 | `vault kv get secret/minio` |
-| **Langfuse** | http://langfuse.raj-ai-lab.localhost:8080 | raj@lab.local / `vault kv get secret/langfuse-app` |
-| **Grafana** | http://grafana.raj-ai-lab.localhost:8080 | admin / `vault kv get secret/grafana` |
-| **Keycloak** | http://keycloak.raj-ai-lab.localhost:8080 | admin / `vault kv get secret/keycloak` |
-| **Prometheus** | http://prometheus.raj-ai-lab.localhost:8080 | — |
-| **ArgoCD** | http://argocd.raj-ai-lab.localhost:8080 | admin / `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" \| base64 -d` |
-| **RAG API** | http://api.raj-ai-lab.localhost:8080 | — (`/health`, `/query`, `/ingest`) |
-| **Agent API** | http://agent.raj-ai-lab.localhost:8080 | — (`/health`, `/agent/run`) |
+**Portal:** https://raj-ai-lab.localhost:8443 — 13 tiles, one-click access to everything.
+
+**SSO:** All services use Keycloak OIDC. Login: `raj` / `rajailab`.
+
+| UI | URL | Auth |
+|----|-----|------|
+| **Portal** | https://raj-ai-lab.localhost:8443 | SSO (shared cookie) |
+| **RAG UI** | https://rag.raj-ai-lab.localhost:8443 | SSO (oauth2-proxy) |
+| **Qdrant** | https://qdrant.raj-ai-lab.localhost:8443/dashboard | SSO (oauth2-proxy + auto api-key) |
+| **Kafka UI** | https://kafka.raj-ai-lab.localhost:8443 | SSO (oauth2-proxy) |
+| **Neo4j Browser** | https://neo4j.raj-ai-lab.localhost:8443 | SSO (click "Connect with SSO") |
+| **MinIO Console** | https://minio.raj-ai-lab.localhost:8443 | SSO (click "Sign in with Keycloak") |
+| **Langfuse** | https://langfuse.raj-ai-lab.localhost:8443 | SSO gate + own login (`raj@lab.local` / `rajailab`) |
+| **Grafana** | https://grafana.raj-ai-lab.localhost:8443 | SSO (auto-login, lands on Raj AI Lab dashboard) |
+| **Tempo Traces** | https://grafana.raj-ai-lab.localhost:8443/d/tempo-traces/tempo-traces | SSO (via Grafana) |
+| **Prometheus** | https://prometheus.raj-ai-lab.localhost:8443 | SSO (oauth2-proxy) |
+| **ArgoCD** | https://argocd.raj-ai-lab.localhost:8443 | SSO (click "Log in via Keycloak") |
+| **Keycloak** | https://keycloak.raj-ai-lab.localhost:8443 | `raj` / `rajailab` |
+| **Vault** | https://vault.raj-ai-lab.localhost:8443/ui/ | Token from `vault-unseal-keys` secret |
+| **RAG API** | https://rag.raj-ai-lab.localhost:8443 | — (`/health`, `/query`, `/ingest`) |
+| **Agent API** | https://agent.raj-ai-lab.localhost:8443 | — (`/health`, `/agent/run`) |
 
 > On macOS, `*.localhost` subdomains resolve to 127.0.0.1 natively — no `/etc/hosts` entries needed.
 
@@ -188,12 +203,13 @@ The demo runs 5 steps:
 
 | What | Where |
 |------|-------|
-| Kafka events | http://kafka.raj-ai-lab.localhost:8080 → topics: `query.log`, `agent.trace` |
-| LLM traces | http://langfuse.raj-ai-lab.localhost:8080 → Traces |
-| Vectors | http://qdrant.raj-ai-lab.localhost:8080 → collection `raj-docs-acme-corp` |
-| Knowledge graph | http://neo4j.raj-ai-lab.localhost:8080 → `MATCH (n)-[r]->(m) RETURN n,r,m` |
-| Raw documents | http://minio.raj-ai-lab.localhost:8080 → bucket `raj-documents` → `acme-corp/` |
-| Metrics | http://grafana.raj-ai-lab.localhost:8080 → Raj AI Lab dashboard |
+| Kafka events | https://kafka.raj-ai-lab.localhost:8443 → topics: `query.log`, `agent.trace` |
+| LLM traces | https://langfuse.raj-ai-lab.localhost:8443 → Traces |
+| Distributed traces | https://grafana.raj-ai-lab.localhost:8443/d/tempo-traces/tempo-traces |
+| Vectors | https://qdrant.raj-ai-lab.localhost:8443/dashboard → collection `raj-docs-acme-corp` |
+| Knowledge graph | https://neo4j.raj-ai-lab.localhost:8443 → `MATCH (n)-[r]->(m) RETURN n,r,m` |
+| Raw documents | https://minio.raj-ai-lab.localhost:8443 → bucket `raj-documents` → `acme-corp/` |
+| Metrics | https://grafana.raj-ai-lab.localhost:8443 → Raj AI Lab dashboard |
 
 ## Key Features
 
@@ -213,10 +229,11 @@ Pass `tenant_id` on `/ingest` and `/query` endpoints. Each tenant gets:
 
 ### Agent Guardrails
 
-- **Max 10 steps** — prevents infinite loops
-- **Max 50K tokens** — budget control
+- **Max 15 steps** — prevents infinite loops
+- **Max 100K tokens** — budget control
+- **LLM tuning** — temperature=0.3, num_predict=2048, top_p=0.9
 - **Redis kill switch** — `POST /agent/kill` stops all agents immediately
-- **Full audit trail** — every reasoning step logged to Kafka `agent.trace`
+- **Full audit trail** — every reasoning step logged to Kafka `agent.trace` + Langfuse + Tempo
 
 ### GitOps with ArgoCD
 
@@ -245,6 +262,46 @@ RAG service scales 1-5 replicas based on CPU (70%) and memory (80%).
 ```bash
 kubectl get hpa -n ai-platform -w
 ```
+
+### Distributed Tracing (OpenTelemetry + Tempo)
+
+End-to-end distributed tracing across the RAG and agent pipelines:
+
+- **OpenTelemetry SDK** instrumented in rag-service and agent-orchestrator (FastAPI, httpx auto-instrumentation)
+- **Grafana Tempo** receives traces via OTLP gRPC (port 4317)
+- **Grafana dashboard** (`Tempo Traces`) with trace search, service map, and per-service panels
+- **Service names**: `rag-service`, `agent-orchestrator` (via `OTEL_SERVICE_NAME`)
+- **Portal tile**: "Tempo" links directly to the traces dashboard
+
+Each RAG query generates a trace spanning: HTTP request → embedding → vector search → LLM call → response.
+
+### Security
+
+**TLS:** mkcert wildcard certificate (`*.raj-ai-lab.localhost`) — browsers trust natively.
+
+**SSO:** Keycloak 26.2 OIDC with 5 clients (oauth2-proxy, minio, grafana, argocd, neo4j). Shared SSO cookie across all services.
+
+**Secrets:** Zero secrets in git. Vault (production mode, file backend) → External Secrets Operator → K8s Secrets across 4 namespaces.
+
+**Network Policies:** Default-deny ingress on all namespaces. Targeted egress rules for ai-platform (DNS, intra-namespace, ai-data ports, auth:8080, Ollama, monitoring:4317).
+
+**Pod Security:** PSS baseline enforce, restricted warn. seccompProfile: RuntimeDefault. automountServiceAccountToken: false.
+
+**Image Security:** Digest pinning on all third-party images. Local registry cache at `k3d-registry.localhost:5555`.
+
+### Secrets Management (Vault + ESO)
+
+```
+vault-bootstrap-secrets (K8s Secret, manual)
+  → Vault init Job seeds 12 paths
+    → ExternalSecrets sync to K8s Secrets:
+        auth:      keycloak-credentials, keycloak-client-secrets, oauth2-proxy-secrets
+        ai-data:   neo4j, postgresql, redis, qdrant, minio credentials
+        ai-platform: langfuse, qdrant, minio, redis credentials
+        monitoring: grafana-credentials
+```
+
+Vault runs in production mode with file backend, auto-unseal CronJob (every 2 min), and audit logging.
 
 ### Kafka Security (Strimzi mTLS + ACLs)
 
@@ -375,8 +432,14 @@ GitHub Actions workflow (`.github/workflows/ci.yaml`):
 | **API Framework** | FastAPI + Uvicorn |
 | **GitOps** | ArgoCD |
 | **Monitoring** | Prometheus + Grafana |
+| **Distributed Tracing** | OpenTelemetry + Grafana Tempo |
 | **LLM Observability** | Langfuse |
+| **Identity & SSO** | Keycloak 26.2 (OIDC) + oauth2-proxy |
+| **Secrets Management** | HashiCorp Vault + External Secrets Operator |
+| **TLS** | mkcert (browser-trusted wildcard certificates) |
 | **Policy Engine** | Kyverno |
+| **Network Security** | Kubernetes NetworkPolicies (default-deny) |
+| **Pod Security** | Pod Security Standards (baseline enforce) |
 | **IaC** | Terraform |
 | **CI/CD** | GitHub Actions |
 | **Ingress** | Nginx Ingress Controller |
