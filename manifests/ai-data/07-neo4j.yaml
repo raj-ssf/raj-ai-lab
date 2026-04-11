@@ -111,7 +111,7 @@ spec:
               chmod 644 /cacerts-out/cacerts
               keytool -importcert -noprompt -trustcacerts \
                 -alias raj-ai-lab-ca \
-                -file /certificates/ca/tls.crt \
+                -file /certificates/ca/ca.crt \
                 -keystore /cacerts-out/cacerts \
                 -storepass changeit
               echo "CA imported into JVM truststore"

@@ -69,8 +69,8 @@ spec:
             - name: MINIO_IDENTITY_OPENID_ROLE_POLICY
               value: "consoleAdmin"
             # Trust the internal CA cert for Keycloak TLS verification
-            - name: SSL_CERT_DIR
-              value: "/etc/ssl/certs:/etc/minio-ca"
+            - name: SSL_CERT_FILE
+              value: "/etc/minio-ca/ca.crt"
           resources:
             requests:
               cpu: 100m
