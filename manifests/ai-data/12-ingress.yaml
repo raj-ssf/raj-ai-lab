@@ -16,8 +16,6 @@ spec:
   tls:
     - hosts:
         - kafka.raj-ai-lab.localhost
-        - neo4j.raj-ai-lab.localhost
-        - bolt-neo4j.raj-ai-lab.localhost
       secretName: raj-ai-lab-data-tls
   rules:
     - host: kafka.raj-ai-lab.localhost
@@ -30,6 +28,24 @@ spec:
                 name: kafka-ui
                 port:
                   number: 8080
+---
+# Neo4j — handles its own Keycloak OIDC (no oauth2-proxy)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: raj-ai-lab-neo4j-ingress
+  namespace: ai-data
+  annotations:
+    cert-manager.io/cluster-issuer: raj-ai-lab-ca
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - neo4j.raj-ai-lab.localhost
+        - bolt-neo4j.raj-ai-lab.localhost
+      secretName: raj-ai-lab-neo4j-tls
+  rules:
     - host: neo4j.raj-ai-lab.localhost
       http:
         paths:
