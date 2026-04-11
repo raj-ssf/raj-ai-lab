@@ -29,7 +29,7 @@ import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
 print(f'Cached: {d.get(\"cached\", False)}')
-print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:10000]}')
 print()
 "
 
@@ -42,7 +42,7 @@ import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
 print(f'Cached: {d.get(\"cached\", False)}')
-print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:10000]}')
 print()
 "
 
@@ -55,7 +55,7 @@ import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
 print(f'Cached: {d.get(\"cached\", False)}')
-print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:10000]}')
 print()
 "
 
@@ -68,7 +68,7 @@ import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
 print(f'Cached: {d.get(\"cached\", False)}')
-print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:10000]}')
 print()
 "
 
