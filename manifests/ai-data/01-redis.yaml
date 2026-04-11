@@ -46,13 +46,14 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
-      automountServiceAccountToken: false
-      initContainers: null
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: ai-data
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379

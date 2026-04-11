@@ -41,13 +41,14 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
-      automountServiceAccountToken: false
-      initContainers: null
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-ui
+  namespace: ai-platform
+spec:
+  selector:
+    app: rag-ui
+  ports:
+    - port: 7860

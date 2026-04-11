@@ -91,11 +91,10 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
       volumes:
         - name: kafka-certs
           secret:
@@ -103,8 +102,17 @@ spec:
         - name: kafka-cluster-ca
           secret:
             secretName: kafka-cluster-ca-cert
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
-      automountServiceAccountToken: false
-      initContainers: null
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-orchestrator
+  namespace: ai-platform
+  labels:
+    app: agent-orchestrator
+spec:
+  selector:
+    app: agent-orchestrator
+  ports:
+    - name: http
+      port: 8001

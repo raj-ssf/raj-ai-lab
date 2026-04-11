@@ -96,11 +96,6 @@ spec:
             - name: raj-ai-lab-ca
               mountPath: /etc/minio-ca
               readOnly: true
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
       hostAliases:
         # Resolve keycloak.raj-ai-lab.localhost to the ingress-nginx-8443 Service
         # which exposes nginx ingress port 443 on ClusterIP port 8443. This
@@ -108,15 +103,14 @@ spec:
         - ip: "10.43.181.166"
           hostnames:
             - keycloak.raj-ai-lab.localhost
-      volumes:
-        - name: raj-ai-lab-ca
-          secret:
-            secretName: raj-ai-lab-root-ca-secret
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false
-      initContainers: null
+      volumes:
+        - name: raj-ai-lab-ca
+          secret:
+            secretName: raj-ai-lab-root-ca-secret
   volumeClaimTemplates:
     - metadata:
         name: minio-data
@@ -125,3 +119,43 @@ spec:
         resources:
           requests:
             storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: ai-data
+spec:
+  selector:
+    app: minio
+  ports:
+    - name: api
+      port: 9000
+    - name: console
+      port: 9001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-headless
+  namespace: ai-data
+spec:
+  clusterIP: None
+  selector:
+    app: minio
+  ports:
+    - name: api
+      port: 9000
+    - name: console
+      port: 9001
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: minio-pdb
+  namespace: ai-data
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: minio

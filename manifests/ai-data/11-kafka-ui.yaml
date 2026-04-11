@@ -72,11 +72,10 @@ spec:
             - name: kafka-cluster-ca
               mountPath: /etc/kafka-cluster-ca
               readOnly: true
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
       volumes:
         - name: kafka-ui-cert
           secret:
@@ -84,8 +83,14 @@ spec:
         - name: kafka-cluster-ca
           secret:
             secretName: kafka-cluster-ca-cert
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
-      automountServiceAccountToken: false
-      initContainers: null
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui
+  namespace: ai-data
+spec:
+  selector:
+    app: kafka-ui
+  ports:
+    - port: 8080
