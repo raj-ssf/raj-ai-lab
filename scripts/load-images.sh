@@ -51,6 +51,7 @@ IMAGES=(
   "registry.k8s.io/ingress-nginx/controller:v1.15.1"
 
   # Monitoring
+  "docker.io/grafana/tempo:2.7.2"
   "docker.io/grafana/grafana:12.4.2"
   "quay.io/kiwigrid/k8s-sidecar:2.5.5"
   "quay.io/prometheus/prometheus:v3.11.1"

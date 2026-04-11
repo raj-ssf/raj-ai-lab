@@ -1,0 +1,154 @@
+---
+# Grafana Tempo — lightweight trace backend (monolithic mode, local storage)
+# Receives OTLP gRPC on port 4317 from rag-service and agent-orchestrator.
+# Queried by Grafana via the Tempo datasource on port 3200.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      containers:
+        - name: tempo
+          image: docker.io/grafana/tempo:2.7.2
+          imagePullPolicy: IfNotPresent
+          args:
+            - -config.file=/etc/tempo/tempo.yaml
+          ports:
+            - containerPort: 3200
+              name: http
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tempo
+              readOnly: true
+            - name: data
+              mountPath: /var/tempo
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3200
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 3200
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      volumes:
+        - name: config
+          configMap:
+            name: tempo-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+  namespace: monitoring
+data:
+  tempo.yaml: |
+    stream_over_http_enabled: true
+    server:
+      http_listen_port: 3200
+
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: "0.0.0.0:4317"
+            http:
+              endpoint: "0.0.0.0:4318"
+
+    ingester:
+      max_block_duration: 5m
+
+    compactor:
+      compaction:
+        block_retention: 24h
+
+    storage:
+      trace:
+        backend: local
+        wal:
+          path: /var/tempo/wal
+        local:
+          path: /var/tempo/blocks
+
+    metrics_generator:
+      registry:
+        external_labels:
+          source: tempo
+          cluster: raj-ai-lab
+      storage:
+        path: /var/tempo/generator/wal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: monitoring
+  labels:
+    app: tempo
+spec:
+  selector:
+    app: tempo
+  ports:
+    - name: http
+      port: 3200
+    - name: otlp-grpc
+      port: 4317
+    - name: otlp-http
+      port: 4318
+---
+# Grafana datasource — auto-provisioned by the grafana sidecar
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-grafana-datasource
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  tempo-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Tempo
+        type: tempo
+        access: proxy
+        url: http://tempo.monitoring:3200
+        isDefault: false
+        jsonData:
+          httpMethod: GET
+          tracesToLogsV2:
+            datasourceUid: ''
+          serviceMap:
+            datasourceUid: prometheus
+          nodeGraph:
+            enabled: true

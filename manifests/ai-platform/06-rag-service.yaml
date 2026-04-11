@@ -81,6 +81,8 @@ spec:
                 secretKeyRef:
                   name: redis-credentials
                   key: url
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://tempo.monitoring:4317"
           volumeMounts:
             - name: kafka-certs
               mountPath: /etc/kafka-certs
