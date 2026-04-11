@@ -25,6 +25,9 @@ data:
       "bruteForceProtected": false,
       "accessTokenLifespan": 43200,
       "ssoSessionIdleTimeout": 43200,
+      "groups": [
+        {"name": "admin"}
+      ],
       "users": [
         {
           "username": "raj",
@@ -39,7 +42,8 @@ data:
               "value": "__KEYCLOAK_USER_PASSWORD__",
               "temporary": false
             }
-          ]
+          ],
+          "groups": ["admin"]
         }
       ],
       "clients": [
@@ -85,6 +89,18 @@ data:
                 "included.client.audience": "neo4j",
                 "id.token.claim": "true",
                 "access.token.claim": "true"
+              }
+            },
+            {
+              "name": "groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "config": {
+                "full.path": "false",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "groups",
+                "userinfo.token.claim": "true"
               }
             }
           ]
