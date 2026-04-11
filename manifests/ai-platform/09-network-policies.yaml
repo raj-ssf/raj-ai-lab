@@ -89,6 +89,25 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: portal-ingress
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: portal
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: langfuse-ingress
   namespace: ai-platform
 spec:
