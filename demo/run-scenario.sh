@@ -5,8 +5,11 @@
 RAG_URL="${RAG_URL:-http://localhost:8000}"
 AGENT_URL="${AGENT_URL:-http://localhost:8001}"
 
+ts() { date "+%Y-%m-%d %H:%M:%S"; }
+
 echo "════════════════════════════════════════════════════════════"
 echo "  SUPPLY CHAIN SCENARIO: Shipment Delay Crisis"
+echo "  Started: $(ts)"
 echo "════════════════════════════════════════════════════════════"
 echo ""
 echo "  Situation: Acme Bearings shipment of 500 SKF-32210 bearings"
@@ -17,7 +20,7 @@ echo ""
 echo "════════════════════════════════════════════════════════════"
 echo ""
 
-echo "Step 1: Query RAG — What's the bearing spec?"
+echo "[$(ts)] Step 1: Query RAG — What's the bearing spec?"
 echo "─────────────────────────────────────────────"
 curl -s -X POST "$RAG_URL/query" \
   -H "Content-Type: application/json" \
@@ -25,11 +28,12 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
+print(f'Cached: {d.get(\"cached\", False)}')
 print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
-echo "Step 2: Query RAG — Who are the approved suppliers?"
+echo "[$(ts)] Step 2: Query RAG — Who are the approved suppliers?"
 echo "───────────────────────────────────────────────────"
 curl -s -X POST "$RAG_URL/query" \
   -H "Content-Type: application/json" \
@@ -37,11 +41,12 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
+print(f'Cached: {d.get(\"cached\", False)}')
 print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
-echo "Step 3: Query RAG — What's the production impact?"
+echo "[$(ts)] Step 3: Query RAG — What's the production impact?"
 echo "─────────────────────────────────────────────────"
 curl -s -X POST "$RAG_URL/query" \
   -H "Content-Type: application/json" \
@@ -49,11 +54,12 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
+print(f'Cached: {d.get(\"cached\", False)}')
 print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
-echo "Step 4: Query RAG (complex) — Quality concerns?"
+echo "[$(ts)] Step 4: Query RAG (complex) — Quality concerns?"
 echo "────────────────────────────────────────────────"
 curl -s -X POST "$RAG_URL/query" \
   -H "Content-Type: application/json" \
@@ -61,11 +67,12 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
+print(f'Cached: {d.get(\"cached\", False)}')
 print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
-echo "Step 5: Run Agent — Full crisis resolution"
+echo "[$(ts)] Step 5: Run Agent — Full crisis resolution"
 echo "───────────────────────────────────────────"
 echo "(Agent will: check inventory, query Neo4j for suppliers, search docs, recommend action)"
 echo ""
@@ -88,13 +95,14 @@ else:
 
 echo ""
 echo "════════════════════════════════════════════════════════════"
-echo "  INSPECT THE DATA FLOW"
+echo "  SCENARIO COMPLETE: $(ts)"
 echo "════════════════════════════════════════════════════════════"
 echo ""
-echo "  Kafka UI:    http://kafka.raj-ai-lab.localhost:8080 → Topics → query.log, agent.trace"
-echo "  Langfuse:    http://langfuse.raj-ai-lab.localhost:8080 → Traces"
-echo "  Qdrant:      http://qdrant.raj-ai-lab.localhost:8080/dashboard → collection raj-docs-acme-corp"
-echo "  Neo4j:       http://neo4j.raj-ai-lab.localhost:8080 → MATCH (n)-[r]->(m) RETURN n,r,m"
-echo "  MinIO:       http://minio.raj-ai-lab.localhost:8080 → bucket raj-documents → acme-corp/"
-echo "  Grafana:     http://grafana.raj-ai-lab.localhost:8080 → Raj AI Lab dashboard"
+echo "  Kafka UI:    https://kafka.raj-ai-lab.localhost:8443 → Topics → query.log, agent.trace"
+echo "  Langfuse:    https://langfuse.raj-ai-lab.localhost:8443 → Traces"
+echo "  Qdrant:      https://qdrant.raj-ai-lab.localhost:8443/dashboard → collection raj-docs-acme-corp"
+echo "  Neo4j:       https://neo4j.raj-ai-lab.localhost:8443 → MATCH (n)-[r]->(m) RETURN n,r,m"
+echo "  MinIO:       https://minio.raj-ai-lab.localhost:8443 → bucket raj-documents → acme-corp/"
+echo "  Grafana:     https://grafana.raj-ai-lab.localhost:8443 → Raj AI Lab dashboard"
+echo "  Tempo:       https://grafana.raj-ai-lab.localhost:8443/d/tempo-traces/tempo-traces"
 echo ""
