@@ -60,7 +60,7 @@ data:
           <div class="name">Qdrant</div>
           <div class="desc">Vector database collections</div>
         </a>
-        <a class="card" target="_blank" href="https://neo4j.raj-ai-lab.localhost:8443">
+        <a class="card" target="_blank" href="https://neo4j.raj-ai-lab.localhost:8443/browser/?dbms=neo4j%2Bs%3A%2F%2Fbolt-neo4j.raj-ai-lab.localhost%3A8443&preselectAuthMethod=sso">
           <div class="icon">&#x1F578;</div>
           <div class="name">Neo4j</div>
           <div class="desc">Knowledge graph browser</div>
