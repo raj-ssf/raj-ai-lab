@@ -69,7 +69,7 @@ echo "Step 5: Run Agent — Full crisis resolution"
 echo "───────────────────────────────────────────"
 echo "(Agent will: check inventory, query Neo4j for suppliers, search docs, recommend action)"
 echo ""
-curl -s -X POST "$AGENT_URL/agent/run" \
+curl -s --max-time 300 -X POST "$AGENT_URL/agent/run" \
   -H "Content-Type: application/json" \
   -d '{"question": "URGENT: Acme Bearings shipment of 500 SKF-32210 bearings delayed 5 days. We have 3.9 days inventory at 320/day consumption. Revenue risk $1.68M/day. Find alternative suppliers, check inventory, and recommend immediate action.", "tenant_id": "acme-corp"}' | python3 -c "
 import sys, json
