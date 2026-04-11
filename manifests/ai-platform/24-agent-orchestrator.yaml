@@ -36,9 +36,9 @@ spec:
                   name: redis-credentials
                   key: url
             - name: MAX_STEPS
-              value: "10"
+              value: "15"
             - name: MAX_TOKENS
-              value: "50000"
+              value: "100000"
             - name: NEO4J_URI
               value: "bolt://graphdb.ai-data:7687"
             - name: NEO4J_USER

@@ -261,8 +261,9 @@ When ready to answer:
         with tracer.start_as_current_span("agent-reason", attributes={"step": step_num, "model": OLLAMA_MODEL}):
             r = httpx.post(
                 f"{OLLAMA_URL}/api/generate",
-                json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json"},
-                timeout=60
+                json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json",
+                      "options": {"temperature": 0.3, "num_predict": 2048, "top_p": 0.9}},
+                timeout=120
             )
         llm_data = r.json()
         response_text = llm_data.get("response", "{}")
