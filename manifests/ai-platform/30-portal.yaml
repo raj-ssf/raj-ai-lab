@@ -84,6 +84,11 @@ data:
           <div class="name">Grafana</div>
           <div class="desc">Metrics dashboards and alerts</div>
         </a>
+        <a class="card" target="_blank" href="https://grafana.raj-ai-lab.localhost:8443/d/tempo-traces/tempo-traces">
+          <div class="icon">&#x1F50E;</div>
+          <div class="name">Tempo</div>
+          <div class="desc">Distributed traces (OpenTelemetry)</div>
+        </a>
         <a class="card" target="_blank" href="https://prometheus.raj-ai-lab.localhost:8443">
           <div class="icon">&#x1F525;</div>
           <div class="name">Prometheus</div>

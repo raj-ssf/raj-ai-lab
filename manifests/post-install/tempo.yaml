@@ -141,6 +141,7 @@ data:
     datasources:
       - name: Tempo
         type: tempo
+        uid: tempo
         access: proxy
         url: http://tempo.monitoring:3200
         isDefault: false

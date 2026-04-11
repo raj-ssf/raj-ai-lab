@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-traces-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  tempo-traces.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "title": "Trace Search",
+          "type": "row",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+          "collapsed": false
+        },
+        {
+          "title": "Recent Traces",
+          "type": "table",
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 1},
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "targets": [
+            {
+              "datasource": {"type": "tempo", "uid": "tempo"},
+              "queryType": "traceqlSearch",
+              "limit": 20,
+              "filters": [
+                {"id": "service-name", "tag": "service.name", "operator": "=", "scope": "resource"}
+              ]
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        },
+        {
+          "title": "Service Performance",
+          "type": "row",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 11},
+          "collapsed": false
+        },
+        {
+          "title": "Trace Duration by Service (p50 / p95)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "targets": [
+            {
+              "datasource": {"type": "tempo", "uid": "tempo"},
+              "queryType": "traceql",
+              "query": "{resource.service.name = \"rag-service\"} | rate() by (resource.service.name)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "s"}
+          }
+        },
+        {
+          "title": "Trace Duration by Service (agent)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "targets": [
+            {
+              "datasource": {"type": "tempo", "uid": "tempo"},
+              "queryType": "traceql",
+              "query": "{resource.service.name = \"agent-orchestrator\"} | rate() by (resource.service.name)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "s"}
+          }
+        },
+        {
+          "title": "Trace Details",
+          "type": "row",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 20},
+          "collapsed": false
+        },
+        {
+          "title": "Service Map",
+          "type": "nodeGraph",
+          "gridPos": {"h": 10, "w": 12, "x": 0, "y": 21},
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "targets": [
+            {
+              "datasource": {"type": "tempo", "uid": "tempo"},
+              "queryType": "serviceMap"
+            }
+          ]
+        },
+        {
+          "title": "RAG Pipeline Traces",
+          "type": "table",
+          "gridPos": {"h": 10, "w": 12, "x": 12, "y": 21},
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "targets": [
+            {
+              "datasource": {"type": "tempo", "uid": "tempo"},
+              "queryType": "traceqlSearch",
+              "limit": 10,
+              "filters": [
+                {"id": "service-name", "tag": "service.name", "operator": "=", "scope": "resource", "value": ["rag-service"]},
+                {"id": "span-name", "tag": "name", "operator": "=", "scope": "span"}
+              ]
+            }
+          ]
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["tempo", "traces", "opentelemetry"],
+      "templating": {"list": []},
+      "time": {"from": "now-1h", "to": "now"},
+      "timepicker": {},
+      "timezone": "",
+      "title": "Tempo Traces",
+      "uid": "tempo-traces",
+      "version": 1,
+      "weekStart": ""
+    }
