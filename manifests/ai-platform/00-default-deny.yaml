@@ -98,10 +98,9 @@ spec:
     - to:
         - ipBlock:
             cidr: 10.0.0.0/8
-      ports:
-        - port: 11434
-    - to:
         - ipBlock:
             cidr: 172.16.0.0/12
+        - ipBlock:
+            cidr: 192.168.0.0/16
       ports:
         - port: 11434
