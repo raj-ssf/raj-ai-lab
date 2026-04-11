@@ -366,7 +366,6 @@ metadata:
   name: keycloak-ingress
   namespace: auth
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
     nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
 spec:
@@ -374,7 +373,7 @@ spec:
   tls:
     - hosts:
         - keycloak.raj-ai-lab.localhost
-      secretName: raj-ai-lab-keycloak-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: keycloak.raj-ai-lab.localhost
       http:

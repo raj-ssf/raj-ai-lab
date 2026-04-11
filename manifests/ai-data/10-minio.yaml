@@ -110,7 +110,7 @@ spec:
       volumes:
         - name: raj-ai-lab-ca
           secret:
-            secretName: raj-ai-lab-root-ca-secret
+            secretName: mkcert-ca
   volumeClaimTemplates:
     - metadata:
         name: minio-data

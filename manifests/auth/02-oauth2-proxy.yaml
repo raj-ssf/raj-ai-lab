@@ -85,7 +85,7 @@ spec:
               mountPath: /etc/oauth2-proxy
             - name: ca-cert
               mountPath: /etc/ssl/certs/raj-ai-lab-root-ca.crt
-              subPath: tls.crt
+              subPath: ca.crt
               readOnly: true
           resources:
             requests:
@@ -110,7 +110,7 @@ spec:
             name: oauth2-proxy-config
         - name: ca-cert
           secret:
-            secretName: raj-ai-lab-root-ca-secret
+            secretName: mkcert-ca
 ---
 apiVersion: v1
 kind: Service
@@ -133,13 +133,12 @@ metadata:
   name: oauth2-proxy-ingress
   namespace: auth
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
         - auth.raj-ai-lab.localhost
-      secretName: raj-ai-lab-auth-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: auth.raj-ai-lab.localhost
       http:

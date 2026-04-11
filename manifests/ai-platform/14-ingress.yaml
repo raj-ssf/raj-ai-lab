@@ -12,7 +12,6 @@ metadata:
   name: raj-ai-lab-ui-ingress
   namespace: ai-platform
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -34,7 +33,7 @@ spec:
         - raj-ai-lab.localhost
         - rag.raj-ai-lab.localhost
         - langfuse.raj-ai-lab.localhost
-      secretName: raj-ai-lab-ui-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: raj-ai-lab.localhost
       http:
@@ -74,7 +73,6 @@ metadata:
   name: raj-ai-lab-api-ingress
   namespace: ai-platform
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
@@ -86,7 +84,7 @@ spec:
     - hosts:
         - api.raj-ai-lab.localhost
         - agent.raj-ai-lab.localhost
-      secretName: raj-ai-lab-api-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: api.raj-ai-lab.localhost
       http:

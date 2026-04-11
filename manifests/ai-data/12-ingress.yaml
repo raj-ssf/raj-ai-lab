@@ -6,7 +6,6 @@ metadata:
   name: raj-ai-lab-data-ingress
   namespace: ai-data
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     # Gate behind oauth2-proxy
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
@@ -16,7 +15,7 @@ spec:
   tls:
     - hosts:
         - kafka.raj-ai-lab.localhost
-      secretName: raj-ai-lab-data-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: kafka.raj-ai-lab.localhost
       http:
@@ -36,7 +35,6 @@ metadata:
   name: raj-ai-lab-neo4j-ingress
   namespace: ai-data
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
 spec:
   ingressClassName: nginx
@@ -44,7 +42,7 @@ spec:
     - hosts:
         - neo4j.raj-ai-lab.localhost
         - bolt-neo4j.raj-ai-lab.localhost
-      secretName: raj-ai-lab-neo4j-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: neo4j.raj-ai-lab.localhost
       http:
@@ -78,7 +76,6 @@ metadata:
   name: raj-ai-lab-qdrant-ingress
   namespace: ai-data
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     # Gate behind oauth2-proxy
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
@@ -88,7 +85,7 @@ spec:
   tls:
     - hosts:
         - qdrant.raj-ai-lab.localhost
-      secretName: raj-ai-lab-qdrant-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: qdrant.raj-ai-lab.localhost
       http:
@@ -108,7 +105,6 @@ metadata:
   name: raj-ai-lab-minio-ingress
   namespace: ai-data
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
 spec:
@@ -116,7 +112,7 @@ spec:
   tls:
     - hosts:
         - minio.raj-ai-lab.localhost
-      secretName: raj-ai-lab-minio-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: minio.raj-ai-lab.localhost
       http:

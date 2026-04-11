@@ -6,7 +6,6 @@ metadata:
   name: raj-ai-lab-monitoring-ingress
   namespace: monitoring
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.auth.svc.cluster.local:4180/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://auth.raj-ai-lab.localhost:8443/oauth2/start?rd=$scheme://$http_host$escaped_request_uri"
@@ -15,7 +14,7 @@ spec:
   tls:
     - hosts:
         - prometheus.raj-ai-lab.localhost
-      secretName: raj-ai-lab-monitoring-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: prometheus.raj-ai-lab.localhost
       http:
@@ -35,14 +34,13 @@ metadata:
   name: raj-ai-lab-grafana-ingress
   namespace: monitoring
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
         - grafana.raj-ai-lab.localhost
-      secretName: raj-ai-lab-grafana-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: grafana.raj-ai-lab.localhost
       http:
@@ -62,14 +60,13 @@ metadata:
   name: raj-ai-lab-argocd-ingress
   namespace: argocd
   annotations:
-    cert-manager.io/cluster-issuer: raj-ai-lab-ca
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
         - argocd.raj-ai-lab.localhost
-      secretName: raj-ai-lab-argocd-tls
+      secretName: mkcert-wildcard-tls
   rules:
     - host: argocd.raj-ai-lab.localhost
       http:

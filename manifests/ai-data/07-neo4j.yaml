@@ -124,7 +124,7 @@ spec:
       volumes:
         - name: ca-cert
           secret:
-            secretName: raj-ai-lab-root-ca-secret
+            secretName: mkcert-ca
         - name: truststore
           emptyDir: {}
       securityContext:
