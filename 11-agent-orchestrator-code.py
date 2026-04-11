@@ -342,7 +342,7 @@ def act_node(state: AgentState) -> AgentState:
             "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "action": "final_answer",
-            "answer": tool_input[:200],
+            "answer": str(tool_input)[:200],
             "timestamp": now()
         })
         return state
