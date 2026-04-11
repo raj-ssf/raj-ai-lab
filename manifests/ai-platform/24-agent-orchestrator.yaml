@@ -50,6 +50,8 @@ spec:
                   key: password
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://tempo.monitoring:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "agent-orchestrator"
             - name: LANGFUSE_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
