@@ -114,7 +114,6 @@ spec:
                 limits:
                   cpu: 500m
                   memory: 512Mi
-                    - ALL
           securityContext:
             seccompProfile:
               type: RuntimeDefault
