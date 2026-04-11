@@ -222,7 +222,7 @@ def reason_node(state: AgentState) -> AgentState:
     # Build context from previous steps
     history = ""
     for s in state["steps"]:
-        history += f"\nStep {s['step']}: Used {s['tool']} → {json.dumps(s['result'])[:200]}"
+        history += f"\nStep {s['step']}: Used {s['tool']} → {json.dumps(s['result'])[:2000]}"
 
     # Force final answer after gathering enough data
     force_final = step_num >= 7
@@ -346,7 +346,7 @@ def act_node(state: AgentState) -> AgentState:
             "tenant_id": state.get("tenant_id", ""),
             "step": state["current_step"],
             "action": "final_answer",
-            "answer": str(tool_input)[:200],
+            "answer": str(tool_input)[:2000],
             "timestamp": now()
         })
         return state
@@ -355,7 +355,7 @@ def act_node(state: AgentState) -> AgentState:
     if tool_name in TOOLS:
         TOOL_CALLS.labels(tool=tool_name).inc()
         start = time.time()
-        with tracer.start_as_current_span(f"tool:{tool_name}", attributes={"tool": tool_name, "input": str(tool_input)[:200]}):
+        with tracer.start_as_current_span(f"tool:{tool_name}", attributes={"tool": tool_name, "input": str(tool_input)[:2000]}):
             if tool_name == "rag_search":
                 result = TOOLS[tool_name](tool_input, tenant_id=state.get("tenant_id", ""))
             else:
@@ -540,7 +540,7 @@ def run_agent(req: dict):
     if trace:
         try:
             trace.update(
-                output={"answer": str(final_state.get("answer", ""))[:200], "status": final_state.get("status", "")},
+                output={"answer": str(final_state.get("answer", ""))[:2000], "status": final_state.get("status", "")},
                 metadata={"total_steps": final_state["current_step"], "total_tokens": final_state["total_tokens"],
                           "latency_ms": latency_ms, "status": final_state["status"]}
             )
