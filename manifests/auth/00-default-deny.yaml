@@ -55,6 +55,23 @@ spec:
     - from:
         - podSelector: {}
 ---
+# Allow ingress to Keycloak from all namespaces (OIDC token exchange)
+# Grafana, ArgoCD, Neo4j etc need server-side access to Keycloak
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-keycloak-ingress
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8080
+---
 # Allow ingress from ingress-nginx (for Keycloak and oauth2-proxy UIs)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

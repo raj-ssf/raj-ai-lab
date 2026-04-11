@@ -94,6 +94,10 @@ spec:
             - name: truststore
               mountPath: /truststore
               readOnly: true
+      hostAliases:
+        - ip: "10.43.181.166"
+          hostnames:
+            - keycloak.raj-ai-lab.localhost
       initContainers:
         # Import self-signed CA into JVM truststore so Neo4j can validate Keycloak OIDC tokens
         - name: import-ca
