@@ -57,7 +57,6 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
-                - ALL
       volumes:
         - name: kafka-certs
           secret:

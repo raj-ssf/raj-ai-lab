@@ -59,7 +59,6 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
-                - ALL
       volumes:
         - name: kafka-certs
           secret:
