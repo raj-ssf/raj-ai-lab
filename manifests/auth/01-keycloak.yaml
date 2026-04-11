@@ -95,6 +95,23 @@ data:
           "defaultClientScopes": ["openid", "email", "profile"]
         },
         {
+          "clientId": "neo4j",
+          "enabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__NEO4J_CLIENT_SECRET__",
+          "redirectUris": [
+            "https://neo4j.raj-ai-lab.localhost:8443/*"
+          ],
+          "webOrigins": [
+            "https://neo4j.raj-ai-lab.localhost"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "publicClient": false,
+          "protocol": "openid-connect",
+          "defaultClientScopes": ["openid", "email", "profile"]
+        },
+        {
           "clientId": "argocd",
           "enabled": true,
           "clientAuthenticatorType": "client-secret",
@@ -144,6 +161,7 @@ spec:
               content = content.replace("__MINIO_CLIENT_SECRET__", os.environ["MINIO_CLIENT_SECRET"])
               content = content.replace("__GRAFANA_CLIENT_SECRET__", os.environ["GRAFANA_CLIENT_SECRET"])
               content = content.replace("__ARGOCD_CLIENT_SECRET__", os.environ["ARGOCD_CLIENT_SECRET"])
+              content = content.replace("__NEO4J_CLIENT_SECRET__", os.environ["NEO4J_CLIENT_SECRET"])
               with open("/output/raj-ai-lab.json", "w") as f:
                   f.write(content)
               print("Realm JSON templated with secrets")
@@ -173,6 +191,11 @@ spec:
                 secretKeyRef:
                   name: keycloak-client-secrets
                   key: argocd_secret
+            - name: NEO4J_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: neo4j_secret
           volumeMounts:
             - name: realm-template
               mountPath: /template

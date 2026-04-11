@@ -16,13 +16,16 @@ spec:
     spec:
       containers:
         - name: neo4j
-          image: neo4j:5.26-community@sha256:a5163941dd4bbf2a2232586fbc68c428d987fffa988f26ce2aa71c69b928ae36
+          image: neo4j:5.26-enterprise
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 7474
               name: http
             - containerPort: 7687
               name: bolt
           env:
+            - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
+              value: "yes"
             - name: NEO4J_AUTH
               valueFrom:
                 secretKeyRef:
@@ -32,6 +35,37 @@ spec:
               value: '["apoc"]'
             - name: NEO4J_server_default__listen__address
               value: "0.0.0.0"
+            # OIDC SSO via Keycloak
+            - name: NEO4J_dbms_security_authentication__providers
+              value: "oidc-keycloak,native"
+            - name: NEO4J_dbms_security_authorization__providers
+              value: "oidc-keycloak,native"
+            - name: NEO4J_dbms_security_oidc_keycloak_display__name
+              value: "Keycloak"
+            - name: NEO4J_dbms_security_oidc_keycloak_auth__flow
+              value: "pkce"
+            - name: NEO4J_dbms_security_oidc_keycloak_well__known__discovery__uri
+              value: "https://keycloak.raj-ai-lab.localhost:8443/realms/raj-ai-lab/.well-known/openid-configuration"
+            - name: NEO4J_dbms_security_oidc_keycloak_params
+              value: "client_id=neo4j;response_type=code;scope=openid email profile"
+            - name: NEO4J_dbms_security_oidc_keycloak_token__endpoint__params
+              value: "client_id=neo4j;client_secret=raj-ai-lab-neo4j-secret"
+            - name: NEO4J_dbms_security_oidc_keycloak_config
+              value: "principal=preferred_username;code_challenge_method=S256"
+            - name: NEO4J_dbms_security_oidc_keycloak_audience
+              value: "neo4j"
+            - name: NEO4J_dbms_security_oidc_keycloak_claims_username
+              value: "preferred_username"
+            - name: NEO4J_dbms_security_oidc_keycloak_claims_groups
+              value: "groups"
+            - name: NEO4J_dbms_security_oidc_keycloak_authorization_group__to__role__mapping
+              value: "admin=admin"
+            # Trust self-signed CA
+            - name: NEO4J_dbms_security_oidc_keycloak_get__groups__from__user__info
+              value: "true"
+            # JVM truststore with self-signed CA for Keycloak OIDC
+            - name: NEO4J_server_jvm_additional
+              value: "-Djavax.net.ssl.trustStore=/truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
           resources:
             requests:
               cpu: 200m
@@ -54,6 +88,41 @@ spec:
           volumeMounts:
             - name: neo4j-data
               mountPath: /data
+            - name: ca-cert
+              mountPath: /certificates/ca
+              readOnly: true
+            - name: truststore
+              mountPath: /truststore
+              readOnly: true
+      initContainers:
+        # Import self-signed CA into JVM truststore so Neo4j can validate Keycloak OIDC tokens
+        - name: import-ca
+          image: neo4j:5.26-enterprise
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              cp /opt/java/openjdk/lib/security/cacerts /cacerts-out/cacerts
+              chmod 644 /cacerts-out/cacerts
+              keytool -importcert -noprompt -trustcacerts \
+                -alias raj-ai-lab-ca \
+                -file /certificates/ca/tls.crt \
+                -keystore /cacerts-out/cacerts \
+                -storepass changeit
+              echo "CA imported into JVM truststore"
+          volumeMounts:
+            - name: ca-cert
+              mountPath: /certificates/ca
+              readOnly: true
+            - name: truststore
+              mountPath: /cacerts-out
+      volumes:
+        - name: ca-cert
+          secret:
+            secretName: raj-ai-lab-root-ca-secret
+        - name: truststore
+          emptyDir: {}
       securityContext:
         seccompProfile:
           type: RuntimeDefault
