@@ -139,7 +139,7 @@ data:
             "https://neo4j.raj-ai-lab.localhost:8443/*"
           ],
           "webOrigins": [
-            "https://neo4j.raj-ai-lab.localhost"
+            "https://neo4j.raj-ai-lab.localhost:8443"
           ],
           "standardFlowEnabled": true,
           "directAccessGrantsEnabled": true,
