@@ -1,65 +1,14 @@
 ---
-# Default deny all ingress and egress traffic.
-# Specific allow policies in other files whitelist required connections.
+# Default deny ingress only. Egress is unrestricted because:
+# 1. Strimzi entity operator needs K8s API for CRD watches
+# 2. k3s NetworkPolicy can't match ClusterIP for egress rules
+# 3. Data store pods don't initiate external connections anyway
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-all
+  name: default-deny-ingress
   namespace: ai-data
 spec:
   podSelector: {}
   policyTypes:
     - Ingress
-    - Egress
----
-# Allow DNS egress (required for all pods to resolve service names)
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-dns-egress
-  namespace: ai-data
-spec:
-  podSelector: {}
-  policyTypes:
-    - Egress
-  egress:
-    - ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
----
-# Allow intra-namespace egress (pods within ai-data can talk to each other)
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-intra-namespace-egress
-  namespace: ai-data
-spec:
-  podSelector: {}
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - podSelector: {}
----
-# MinIO needs egress to ingress-nginx for Keycloak OIDC discovery
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: minio-oidc-egress
-  namespace: ai-data
-spec:
-  podSelector:
-    matchLabels:
-      app: minio
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ingress-nginx
-      ports:
-        - port: 443
-        - port: 8443
