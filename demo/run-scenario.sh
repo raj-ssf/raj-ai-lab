@@ -79,7 +79,11 @@ print(f'Steps:   {d.get(\"steps_taken\")}')
 print(f'Tokens:  {d.get(\"total_tokens\")}')
 print(f'Status:  {d.get(\"status\")}')
 print(f'Latency: {d.get(\"latency_ms\")}ms')
-print(f'Answer:  {d.get(\"answer\",\"(agent did not produce final answer — check Kafka agent.trace for reasoning)\")[:500]}')
+ans = d.get('answer', '(agent did not produce final answer — check Kafka agent.trace for reasoning)')
+if isinstance(ans, dict):
+    print(f'Answer:  {json.dumps(ans, indent=2)[:800]}')
+else:
+    print(f'Answer:  {str(ans)[:800]}')
 "
 
 echo ""
