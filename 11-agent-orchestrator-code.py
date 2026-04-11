@@ -335,7 +335,10 @@ def act_node(state: AgentState) -> AgentState:
             tool_name = "rag_search"
             tool_input = state["question"]
         else:
-            state["answer"] = tool_input
+            if isinstance(tool_input, dict):
+                state["answer"] = json.dumps(tool_input)
+            else:
+                state["answer"] = str(tool_input)
             state["status"] = "completed"
         publish("agent.trace", {
             "session_id": state["session_id"],
@@ -536,7 +539,7 @@ def run_agent(req: dict):
     if trace:
         try:
             trace.update(
-                output={"answer": final_state.get("answer", "")[:200], "status": final_state.get("status", "")},
+                output={"answer": str(final_state.get("answer", ""))[:200], "status": final_state.get("status", "")},
                 metadata={"total_steps": final_state["current_step"], "total_tokens": final_state["total_tokens"],
                           "latency_ms": latency_ms, "status": final_state["status"]}
             )
