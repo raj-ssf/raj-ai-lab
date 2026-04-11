@@ -81,26 +81,33 @@ step "Restart pipeline pods so they reconnect to fresh topics"
 kubectl rollout restart -n "$NS_PLATFORM" \
   deploy/normalizer deploy/chunker deploy/embedder deploy/graph-updater \
   deploy/rag-service deploy/agent-orchestrator >/dev/null
-echo "  waiting for rag-service to be ready..."
+echo "  waiting for all pods to be ready..."
 kubectl rollout status -n "$NS_PLATFORM" deploy/rag-service --timeout=120s >/dev/null 2>&1 || true
+kubectl rollout status -n "$NS_PLATFORM" deploy/graph-updater --timeout=60s >/dev/null 2>&1 || true
 ok "Restart complete"
 
 # ---------------------------------------------------------------------------
-step "Qdrant — delete all collections (after pod restart so ensure_collection doesn't restore)"
-kubectl exec -n "$NS_PLATFORM" deploy/rag-service -- python3 - <<'PY'
-import os, urllib.request, json
-url = os.environ["QDRANT_URL"]
-key = os.environ["QDRANT_API_KEY"]
-req = urllib.request.Request(f"{url}/collections", headers={"api-key": key})
-data = json.loads(urllib.request.urlopen(req).read())
-for c in data["result"]["collections"]:
-    name = c["name"]
-    print(f"  deleting {name}")
-    r = urllib.request.Request(f"{url}/collections/{name}", method="DELETE", headers={"api-key": key})
-    urllib.request.urlopen(r).read()
-print("  qdrant clean")
-PY
+# Wipe Qdrant and Neo4j AFTER restarts settle so ensure_collection / graph-updater
+# don't re-create data from stale in-flight messages.
+step "Qdrant — delete all collections (post-restart)"
+QDRANT_KEY=$(kubectl get secret qdrant-credentials -n "$NS_DATA" -o jsonpath='{.data.api_key}' | base64 -d)
+kubectl port-forward -n "$NS_DATA" pod/qdrant-0 16337:6333 >/dev/null 2>&1 &
+PF_PID=$!
+sleep 2
+COLLECTIONS=$(curl -sf "http://127.0.0.1:16337/collections" -H "api-key: ${QDRANT_KEY}" \
+  | python3 -c "import sys,json; [print(c['name']) for c in json.load(sys.stdin)['result']['collections']]" 2>/dev/null || true)
+if [[ -n "$COLLECTIONS" ]]; then
+  while IFS= read -r col; do
+    echo "  deleting $col"
+    curl -sf -X DELETE "http://127.0.0.1:16337/collections/$col" -H "api-key: ${QDRANT_KEY}" >/dev/null
+  done <<< "$COLLECTIONS"
+fi
+kill "$PF_PID" 2>/dev/null || true
 ok "Qdrant cleaned"
+
+# ---------------------------------------------------------------------------
+# NOTE: Neo4j is NOT wiped post-restart because graph-updater seeds sample data
+# on startup via seed_sample_data(). A second wipe would erase that seed data.
 
 printf '\n\033[1;32mAll stores cleaned. Ready for the next scenario.\033[0m\n'
 printf 'Next: python3 demo/seed-supply-chain.py http://localhost:8000\n'
