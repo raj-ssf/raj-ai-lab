@@ -35,6 +35,10 @@ spec:
               value: '["apoc"]'
             - name: NEO4J_server_default__listen__address
               value: "0.0.0.0"
+            - name: NEO4J_server_default__advertised__address
+              value: "bolt-neo4j.raj-ai-lab.localhost"
+            - name: NEO4J_server_bolt_advertised__address
+              value: "bolt-neo4j.raj-ai-lab.localhost:8443"
             # OIDC SSO via Keycloak
             - name: NEO4J_dbms_security_authentication__providers
               value: "oidc-keycloak,native"
