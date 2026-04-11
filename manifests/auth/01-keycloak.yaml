@@ -75,7 +75,19 @@ data:
           "directAccessGrantsEnabled": true,
           "publicClient": false,
           "protocol": "openid-connect",
-          "defaultClientScopes": ["openid", "email", "profile"]
+          "defaultClientScopes": ["openid", "email", "profile"],
+          "protocolMappers": [
+            {
+              "name": "neo4j-audience",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-audience-mapper",
+              "config": {
+                "included.client.audience": "neo4j",
+                "id.token.claim": "true",
+                "access.token.claim": "true"
+              }
+            }
+          ]
         },
         {
           "clientId": "grafana",
