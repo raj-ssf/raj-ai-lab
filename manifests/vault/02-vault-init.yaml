@@ -115,6 +115,9 @@ spec:
                   "keycloak-clients": {
                       "oauth2_proxy_secret": os.environ["OAUTH2_PROXY_CLIENT_SECRET"],
                       "minio_secret": os.environ["MINIO_OIDC_CLIENT_SECRET"],
+                      "grafana_secret": os.environ.get("GRAFANA_CLIENT_SECRET", "raj-ai-lab-grafana-secret"),
+                      "argocd_secret": os.environ.get("ARGOCD_CLIENT_SECRET", "raj-ai-lab-argocd-secret"),
+                      "neo4j_secret": os.environ.get("NEO4J_CLIENT_SECRET", "raj-ai-lab-neo4j-secret"),
                   },
               }
 

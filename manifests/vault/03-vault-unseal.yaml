@@ -1,0 +1,133 @@
+---
+# Auto-unseal sidecar: waits for Vault to start, initializes if needed,
+# unseals, and stores the unseal key + root token in a K8s Secret.
+# On subsequent restarts, reads the existing key and unseals automatically.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-unseal
+  namespace: vault
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-unseal
+  namespace: vault
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-unseal
+  namespace: vault
+subjects:
+  - kind: ServiceAccount
+    name: vault-unseal
+    namespace: vault
+roleRef:
+  kind: Role
+  name: vault-unseal
+  apiGroup: rbac.authorization.k8s.io
+---
+# CronJob that runs every 2 minutes to check and unseal Vault if sealed.
+# Also handles first-time initialization.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-unseal
+  namespace: vault
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: vault-unseal
+          restartPolicy: OnFailure
+          containers:
+            - name: unseal
+              image: hashicorp/vault:1.17@sha256:5484a060a8b2d38246a279e86e2203acc29a48b7bb00dc2e0bd5d7561f849cbb
+              env:
+                - name: VAULT_ADDR
+                  value: "http://vault.vault:8200"
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+
+                  # Wait for Vault to be reachable
+                  for i in $(seq 1 30); do
+                    if vault status -format=json 2>/dev/null; then break; fi
+                    sleep 2
+                  done
+
+                  STATUS=$(vault status -format=json 2>/dev/null || echo '{}')
+                  INITIALIZED=$(echo "$STATUS" | grep -o '"initialized":[a-z]*' | cut -d: -f2)
+                  SEALED=$(echo "$STATUS" | grep -o '"sealed":[a-z]*' | cut -d: -f2)
+
+                  if [ "$INITIALIZED" = "false" ]; then
+                    echo "Vault not initialized. Initializing with 1 key share..."
+                    INIT=$(vault operator init -key-shares=1 -key-threshold=1 -format=json)
+                    UNSEAL_KEY=$(echo "$INIT" | grep -o '"unseal_keys_b64":\[\"[^"]*\"' | cut -d'"' -f4)
+                    ROOT_TOKEN=$(echo "$INIT" | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4)
+
+                    # Store in K8s Secret
+                    cat <<EOF | kubectl apply -f -
+                  apiVersion: v1
+                  kind: Secret
+                  metadata:
+                    name: vault-keys
+                    namespace: vault
+                  type: Opaque
+                  stringData:
+                    unseal_key: "$UNSEAL_KEY"
+                    root_token: "$ROOT_TOKEN"
+                  EOF
+
+                    # Also update vault-token secret for ESO
+                    cat <<EOF | kubectl apply -f -
+                  apiVersion: v1
+                  kind: Secret
+                  metadata:
+                    name: vault-token
+                    namespace: vault
+                  type: Opaque
+                  stringData:
+                    token: "$ROOT_TOKEN"
+                  EOF
+
+                    echo "Vault initialized. Unsealing..."
+                    vault operator unseal "$UNSEAL_KEY"
+                    echo "Vault unsealed and keys stored in vault-keys secret."
+
+                  elif [ "$SEALED" = "true" ]; then
+                    echo "Vault is sealed. Retrieving unseal key..."
+                    UNSEAL_KEY=$(kubectl get secret vault-keys -n vault -o jsonpath='{.data.unseal_key}' | base64 -d)
+                    if [ -z "$UNSEAL_KEY" ]; then
+                      echo "ERROR: vault-keys secret not found or empty."
+                      exit 1
+                    fi
+                    vault operator unseal "$UNSEAL_KEY"
+                    echo "Vault unsealed."
+
+                  else
+                    echo "Vault is already initialized and unsealed."
+                  fi
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault

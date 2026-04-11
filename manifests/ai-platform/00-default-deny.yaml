@@ -66,20 +66,23 @@ spec:
         - port: 7687  # Neo4j Bolt
         - port: 9000  # MinIO API
 ---
-# Allow HTTPS egress to internet (pip install in init containers, PyPI access)
+# Allow egress to auth namespace (Grafana → Keycloak OIDC token exchange)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-https-egress
+  name: allow-auth-egress
   namespace: ai-platform
 spec:
   podSelector: {}
   policyTypes:
     - Egress
   egress:
-    - ports:
-        - port: 443
-          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: auth
+      ports:
+        - port: 8080
 ---
 # Allow egress to host network (Ollama on Mac via host.k3d.internal)
 apiVersion: networking.k8s.io/v1

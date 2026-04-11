@@ -3,14 +3,45 @@ kind: Namespace
 metadata:
   name: vault
 ---
+# Vault config — file backend with persistent storage, TLS disabled (ingress handles TLS)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault
+data:
+  vault.hcl: |
+    ui = true
+    disable_mlock = true
+
+    storage "file" {
+      path = "/vault/data"
+    }
+
+    listener "tcp" {
+      address     = "0.0.0.0:8200"
+      tls_disable = 1
+    }
+
+    api_addr = "http://127.0.0.1:8200"
+
+    audit {
+      type = "file"
+      path = "file"
+      options {
+        file_path = "/vault/logs/audit.log"
+      }
+    }
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: vault
   namespace: vault
   labels:
     app: vault
 spec:
+  serviceName: vault
   replicas: 1
   selector:
     matchLabels:
@@ -23,23 +54,28 @@ spec:
       containers:
         - name: vault
           image: hashicorp/vault:1.17@sha256:5484a060a8b2d38246a279e86e2203acc29a48b7bb00dc2e0bd5d7561f849cbb
+          command: ["vault", "server", "-config=/vault/config/vault.hcl"]
           ports:
             - containerPort: 8200
               name: http
           env:
-            - name: VAULT_DEV_ROOT_TOKEN_ID
-              valueFrom:
-                secretKeyRef:
-                  name: vault-bootstrap-secrets
-                  key: VAULT_TOKEN
-            - name: VAULT_DEV_LISTEN_ADDRESS
-              value: "0.0.0.0:8200"
+            - name: VAULT_ADDR
+              value: "http://127.0.0.1:8200"
+            - name: VAULT_API_ADDR
+              value: "http://vault.vault:8200"
           readinessProbe:
             httpGet:
               path: /v1/sys/health
               port: 8200
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+              port: 8200
+            initialDelaySeconds: 30
+            periodSeconds: 30
           resources:
             requests:
               cpu: 100m
@@ -50,10 +86,16 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
-              add:
-                - IPC_LOCK
               drop:
                 - ALL
+          volumeMounts:
+            - name: vault-data
+              mountPath: /vault/data
+            - name: vault-logs
+              mountPath: /vault/logs
+            - name: vault-config
+              mountPath: /vault/config
+              readOnly: true
       securityContext:
         runAsNonRoot: true
         runAsUser: 100
@@ -61,6 +103,20 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false
+      volumes:
+        - name: vault-config
+          configMap:
+            name: vault-config
+        - name: vault-logs
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: vault-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
