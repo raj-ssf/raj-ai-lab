@@ -25,7 +25,7 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
-print(f'Answer: {d.get(\"answer\",\"\")[:300]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
@@ -37,7 +37,7 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
-print(f'Answer: {d.get(\"answer\",\"\")[:400]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
@@ -49,7 +49,7 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
-print(f'Answer: {d.get(\"answer\",\"\")[:400]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
@@ -61,7 +61,7 @@ curl -s -X POST "$RAG_URL/query" \
 import sys, json
 d = json.loads(sys.stdin.read())
 print(f'Model: {d.get(\"model\",\"?\")} ({d.get(\"route\",\"?\")})')
-print(f'Answer: {d.get(\"answer\",\"\")[:400]}')
+print(f'Answer: {d.get(\"answer\",\"\")[:800]}')
 print()
 "
 
@@ -81,9 +81,9 @@ print(f'Status:  {d.get(\"status\")}')
 print(f'Latency: {d.get(\"latency_ms\")}ms')
 ans = d.get('answer', '(agent did not produce final answer — check Kafka agent.trace for reasoning)')
 if isinstance(ans, dict):
-    print(f'Answer:  {json.dumps(ans, indent=2)[:800]}')
+    print(f'Answer:  {json.dumps(ans, indent=2)}')
 else:
-    print(f'Answer:  {str(ans)[:800]}')
+    print(f'Answer:  {ans}')
 "
 
 echo ""
