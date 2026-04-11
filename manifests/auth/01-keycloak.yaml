@@ -109,8 +109,7 @@ data:
         {
           "clientId": "neo4j",
           "enabled": true,
-          "clientAuthenticatorType": "client-secret",
-          "secret": "__NEO4J_CLIENT_SECRET__",
+          "publicClient": true,
           "redirectUris": [
             "https://neo4j.raj-ai-lab.localhost:8443/*"
           ],
