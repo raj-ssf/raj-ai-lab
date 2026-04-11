@@ -76,6 +76,40 @@ data:
           "publicClient": false,
           "protocol": "openid-connect",
           "defaultClientScopes": ["openid", "email", "profile"]
+        },
+        {
+          "clientId": "grafana",
+          "enabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__GRAFANA_CLIENT_SECRET__",
+          "redirectUris": [
+            "https://grafana.raj-ai-lab.localhost:8443/login/generic_oauth"
+          ],
+          "webOrigins": [
+            "https://grafana.raj-ai-lab.localhost"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "publicClient": false,
+          "protocol": "openid-connect",
+          "defaultClientScopes": ["openid", "email", "profile"]
+        },
+        {
+          "clientId": "argocd",
+          "enabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "__ARGOCD_CLIENT_SECRET__",
+          "redirectUris": [
+            "https://argocd.raj-ai-lab.localhost:8443/auth/callback"
+          ],
+          "webOrigins": [
+            "https://argocd.raj-ai-lab.localhost"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": true,
+          "publicClient": false,
+          "protocol": "openid-connect",
+          "defaultClientScopes": ["openid", "email", "profile"]
         }
       ]
     }
@@ -108,6 +142,8 @@ spec:
               content = content.replace("__KEYCLOAK_USER_PASSWORD__", os.environ["KEYCLOAK_USER_PASSWORD"])
               content = content.replace("__OAUTH2_PROXY_CLIENT_SECRET__", os.environ["OAUTH2_PROXY_CLIENT_SECRET"])
               content = content.replace("__MINIO_CLIENT_SECRET__", os.environ["MINIO_CLIENT_SECRET"])
+              content = content.replace("__GRAFANA_CLIENT_SECRET__", os.environ["GRAFANA_CLIENT_SECRET"])
+              content = content.replace("__ARGOCD_CLIENT_SECRET__", os.environ["ARGOCD_CLIENT_SECRET"])
               with open("/output/raj-ai-lab.json", "w") as f:
                   f.write(content)
               print("Realm JSON templated with secrets")
@@ -127,6 +163,16 @@ spec:
                 secretKeyRef:
                   name: keycloak-client-secrets
                   key: minio_secret
+            - name: GRAFANA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: grafana_secret
+            - name: ARGOCD_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-client-secrets
+                  key: argocd_secret
           volumeMounts:
             - name: realm-template
               mountPath: /template
