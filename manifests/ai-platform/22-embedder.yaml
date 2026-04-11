@@ -71,4 +71,3 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false
-      initContainers: null
