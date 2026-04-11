@@ -1,0 +1,175 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-config
+  namespace: ai-platform
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Raj AI Lab</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+        .header { text-align: center; padding: 2rem 1rem 1rem; }
+        .header h1 { font-size: 2rem; font-weight: 700; color: #f8fafc; }
+        .header p { color: #94a3b8; margin-top: 0.5rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+        .card { background: #1e293b; border-radius: 12px; padding: 1.5rem; text-decoration: none; color: #e2e8f0; transition: transform 0.15s, box-shadow 0.15s; border: 1px solid #334155; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); border-color: #3b82f6; }
+        .card .icon { font-size: 2rem; margin-bottom: 0.75rem; }
+        .card .name { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+        .card .desc { font-size: 0.85rem; color: #94a3b8; }
+        .section { max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
+        .section h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 0.5rem; padding-left: 0.25rem; }
+        .section + .grid { margin-top: 0.5rem; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Raj AI Lab</h1>
+        <p>AI/RAG Platform Dashboard</p>
+      </div>
+
+      <div class="section"><h2>Applications</h2></div>
+      <div class="grid">
+        <a class="card" target="_blank" href="https://rag.raj-ai-lab.localhost:8443" target="_blank">
+          <div class="icon">&#x1F50D;</div>
+          <div class="name">RAG UI</div>
+          <div class="desc">Query documents with AI-powered search</div>
+        </a>
+        <a class="card" target="_blank" href="https://agent.raj-ai-lab.localhost:8443" target="_blank">
+          <div class="icon">&#x1F916;</div>
+          <div class="name">Agent API</div>
+          <div class="desc">Autonomous AI agent orchestrator</div>
+        </a>
+      </div>
+
+      <div class="section"><h2>Data Stores</h2></div>
+      <div class="grid">
+        <a class="card" target="_blank" href="https://kafka.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F4E8;</div>
+          <div class="name">Kafka UI</div>
+          <div class="desc">Message topics, consumers, brokers</div>
+        </a>
+        <a class="card" target="_blank" href="https://qdrant.raj-ai-lab.localhost:8443/dashboard">
+          <div class="icon">&#x1F4CA;</div>
+          <div class="name">Qdrant</div>
+          <div class="desc">Vector database collections</div>
+        </a>
+        <a class="card" target="_blank" href="https://neo4j.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F578;</div>
+          <div class="name">Neo4j</div>
+          <div class="desc">Knowledge graph browser</div>
+        </a>
+        <a class="card" target="_blank" href="https://minio.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F4E6;</div>
+          <div class="name">MinIO</div>
+          <div class="desc">Object storage (S3-compatible)</div>
+        </a>
+      </div>
+
+      <div class="section"><h2>Observability</h2></div>
+      <div class="grid">
+        <a class="card" target="_blank" href="https://langfuse.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F4DD;</div>
+          <div class="name">Langfuse</div>
+          <div class="desc">LLM traces, evaluations, costs</div>
+        </a>
+        <a class="card" target="_blank" href="https://grafana.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F4C8;</div>
+          <div class="name">Grafana</div>
+          <div class="desc">Metrics dashboards and alerts</div>
+        </a>
+        <a class="card" target="_blank" href="https://prometheus.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F525;</div>
+          <div class="name">Prometheus</div>
+          <div class="desc">Raw metrics and PromQL queries</div>
+        </a>
+      </div>
+
+      <div class="section"><h2>Infrastructure</h2></div>
+      <div class="grid">
+        <a class="card" target="_blank" href="https://keycloak.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F511;</div>
+          <div class="name">Keycloak</div>
+          <div class="desc">Identity and access management</div>
+        </a>
+        <a class="card" target="_blank" href="https://argocd.raj-ai-lab.localhost:8443">
+          <div class="icon">&#x1F680;</div>
+          <div class="name">ArgoCD</div>
+          <div class="desc">GitOps continuous delivery</div>
+        </a>
+        <a class="card" target="_blank" href="https://vault.raj-ai-lab.localhost:8443/ui/">
+          <div class="icon">&#x1F512;</div>
+          <div class="name">Vault</div>
+          <div class="desc">Secrets management</div>
+        </a>
+      </div>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: ai-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portal
+  template:
+    metadata:
+      labels:
+        app: portal
+    spec:
+      containers:
+        - name: portal
+          image: python:3.12-slim
+          command: ["python3", "-m", "http.server", "8080", "--directory", "/html"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: html
+              mountPath: /html
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      volumes:
+        - name: html
+          configMap:
+            name: portal-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: ai-platform
+  labels:
+    app: portal
+spec:
+  selector:
+    app: portal
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

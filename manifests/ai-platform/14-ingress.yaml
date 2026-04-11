@@ -32,10 +32,21 @@ spec:
   tls:
     - hosts:
         - raj-ai-lab.localhost
+        - rag.raj-ai-lab.localhost
         - langfuse.raj-ai-lab.localhost
       secretName: raj-ai-lab-ui-tls
   rules:
     - host: raj-ai-lab.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portal
+                port:
+                  number: 8080
+    - host: rag.raj-ai-lab.localhost
       http:
         paths:
           - path: /
